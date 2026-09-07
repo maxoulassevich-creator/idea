@@ -176,6 +176,8 @@
       thumb.classList.toggle('is-active', thumb.getAttribute('data-index') === String(index));
     });
 
+    syncMediaKindState(gallery, activeSlide ? activeSlide.getAttribute('data-kind') : '');
+
     if (elementIsHovered(gallery)) {
       playActiveVideo(activeSlide);
     }
@@ -199,6 +201,8 @@
       if (activeThumb) {
         activateSlide(gallery, activeThumb.getAttribute('data-index'));
       }
+
+      ensureZoomHint(gallery);
     });
   }
 
@@ -265,6 +269,8 @@
     });
 
     updateSliderUiState(wrap);
+    syncMediaKindState(wrap, activeItem ? activeItem.getAttribute('data-kind') : '');
+
     if (elementIsHovered(wrap)) {
       playActiveVideo(activeItem);
     }
@@ -440,6 +446,7 @@
       }
 
       startSliderAutoplay(wrap);
+      ensureZoomHint(wrap);
     });
   }
 
@@ -705,6 +712,7 @@
         preventNativeDrag(wrap);
         goToSliderSlide(wrap, 0);
         startSliderAutoplay(wrap);
+        ensureZoomHint(wrap);
       });
     }
 
@@ -725,6 +733,7 @@
         preventNativeDrag(wrap);
         goToSliderSlide(wrap, 0);
         startSliderAutoplay(wrap);
+        ensureZoomHint(wrap);
       });
     }
 
@@ -894,163 +903,1082 @@
     });
 
   // ───────────────────────────────────────────────────────────────
-  // Fullscreen gallery popup
+  // Модальная галерея: перелистывание, миниатюры, зум (лупа)
   // ───────────────────────────────────────────────────────────────
 
-  var lightboxEl = null;
+  var LB_HOST_SELECTOR = '[data-relod-lightbox]';
+  var SVG_NS = 'http://www.w3.org/2000/svg';
 
-  function getPopupImageFromContainer(container) {
-    if (!container || container.getAttribute('data-kind') === 'video') { return null; }
-    var img = container.querySelector('img');
-    return img || null;
+  function i18n(key, fallback) {
+    var strings = conf().i18n || {};
+    return strings[key] || fallback;
   }
 
-  function getLargeImageSrc(img) {
-    if (!img) { return ''; }
-    return img.currentSrc || img.getAttribute('src') || '';
+  function lightboxConf() {
+    var options = conf().lightbox || {};
+    return {
+      maxZoom: parseFloat(options.maxZoom) || 3.5,
+      stepZoom: parseFloat(options.stepZoom) || 2.2,
+      showThumbs: options.showThumbs !== false
+    };
   }
 
-  function closeImagePopup() {
-    if (!lightboxEl) { return; }
-    lightboxEl.classList.remove('is-visible');
-    var node = lightboxEl;
-    lightboxEl = null;
-    window.setTimeout(function () {
-      if (node && node.parentNode) {
-        node.parentNode.removeChild(node);
+  function prefersReducedMotion() {
+    return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+
+  function isCoarsePointer() {
+    return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+  }
+
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+
+  // ── Источник данных модалки ─────────────────────────────────────
+
+  function findDataScript(host) {
+    if (!host) { return null; }
+    for (var i = 0; i < host.children.length; i++) {
+      var node = host.children[i];
+      if (node.tagName === 'SCRIPT' && node.classList.contains('relod-wcvms-lightbox-data')) {
+        return node;
       }
-    }, 160);
-    document.documentElement.classList.remove('relod-wcvms-popup-open');
+    }
+    return null;
   }
 
-  function openImagePopup(img) {
-    var src = getLargeImageSrc(img);
-    if (!src) { return; }
+  function getLightboxItems(host) {
+    if (!host) { return []; }
+    if (Array.isArray(host._relodLightboxItems)) {
+      return host._relodLightboxItems;
+    }
 
-    closeImagePopup();
+    var script = findDataScript(host);
+    var items = script ? safeParseJSON(script.textContent || '[]', []) : [];
+    if (!Array.isArray(items)) { items = []; }
 
-    lightboxEl = document.createElement('div');
-    lightboxEl.className = 'relod-wcvms-lightbox';
-    lightboxEl.setAttribute('role', 'dialog');
-    lightboxEl.setAttribute('aria-modal', 'true');
+    host._relodLightboxItems = items;
+    return items;
+  }
 
-    var alt = img.getAttribute('alt') || '';
-    lightboxEl.innerHTML =
-      '<button type="button" class="relod-wcvms-lightbox__close" aria-label="Закрыть">×</button>' +
-      '<div class="relod-wcvms-lightbox__inner">' +
-        '<img class="relod-wcvms-lightbox__img" src="' + src.replace(/"/g, '&quot;') + '" alt="' + alt.replace(/"/g, '&quot;') + '">' +
-      '</div>';
+  function setLightboxItems(host, items) {
+    if (!host) { return; }
+    host._relodLightboxItems = Array.isArray(items) ? items : [];
+  }
 
-    document.body.appendChild(lightboxEl);
-    document.documentElement.classList.add('relod-wcvms-popup-open');
+  function updateAllLightboxItems(items) {
+    if (!Array.isArray(items)) { return; }
+    document.querySelectorAll(LB_HOST_SELECTOR).forEach(function (host) {
+      setLightboxItems(host, items);
+    });
+  }
 
-    window.requestAnimationFrame(function () {
-      if (lightboxEl) {
-        lightboxEl.classList.add('is-visible');
+  function getLightboxHost(target) {
+    if (!target || !target.closest) { return null; }
+    var host = target.closest(LB_HOST_SELECTOR);
+    return host && getLightboxItems(host).length ? host : null;
+  }
+
+  /**
+   * Индекс кликнутого медиа в общем наборе модалки.
+   * Сопоставление идёт по data-relod-media-key, чтобы шорткоды с урезанным
+   * набором (без основного изображения) открывали правильный слайд.
+   */
+  function findItemIndexByKey(items, key) {
+    if (!key) { return -1; }
+    for (var i = 0; i < items.length; i++) {
+      if (items[i] && String(items[i].key) === String(key)) { return i; }
+    }
+    return -1;
+  }
+
+  function resolveMediaKey(element) {
+    if (!element) { return ''; }
+    var keyed = element.matches && element.matches('[data-relod-media-key]')
+      ? element
+      : element.querySelector('[data-relod-media-key]');
+    return keyed ? keyed.getAttribute('data-relod-media-key') || '' : '';
+  }
+
+  function getActiveMediaElement(host) {
+    if (!host) { return null; }
+
+    if (host.matches('[data-relod-main-image]')) {
+      return host.querySelector('.relod-wcvms-main-img');
+    }
+
+    return getActiveSliderItem(host) || getActiveGallerySlide(host);
+  }
+
+  // ── Иконки ──────────────────────────────────────────────────────
+
+  function svgIcon(paths, extraClass) {
+    var svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+    if (extraClass) { svg.setAttribute('class', extraClass); }
+
+    paths.forEach(function (d) {
+      var path = document.createElementNS(SVG_NS, 'path');
+      path.setAttribute('d', d);
+      svg.appendChild(path);
+    });
+
+    return svg;
+  }
+
+  var ICONS = {
+    close: ['M6 6l12 12', 'M18 6L6 18'],
+    prev: ['M15 5l-7 7 7 7'],
+    next: ['M9 5l7 7-7 7'],
+    zoom: ['M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14z', 'M20 20l-4.2-4.2', 'M8.5 11h5', 'M11 8.5v5'],
+    zoomOut: ['M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14z', 'M20 20l-4.2-4.2', 'M8.5 11h5'],
+    expand: ['M4 4h16v16H4z', 'M4 9h16']
+  };
+
+  function makeButton(className, label, iconPaths) {
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.className = className;
+    button.setAttribute('aria-label', label);
+    button.title = label;
+    button.appendChild(svgIcon(iconPaths));
+    return button;
+  }
+
+  // ── Значок лупы на изображениях страницы ────────────────────────
+
+  /**
+   * Значок вешаем на визуальную область медиа: у классической галереи это
+   * сцена, а не весь блок вместе с лентой миниатюр.
+   */
+  function getHintContainer(host) {
+    return host.querySelector('.relod-wcvms-stage') || host;
+  }
+
+  function ensureZoomHint(host) {
+    if (!host || !getLightboxItems(host).length) { return; }
+
+    var container = getHintContainer(host);
+    for (var i = 0; i < container.children.length; i++) {
+      if (container.children[i].classList.contains('relod-wcvms-zoom-hint')) { return; }
+    }
+
+    container.appendChild(
+      makeButton('relod-wcvms-zoom-hint', i18n('openGallery', 'Открыть изображение во весь экран'), ICONS.zoom)
+    );
+  }
+
+  /**
+   * Пока активен видео-слайд, лупа не показывается: зумить видео нечего.
+   */
+  function syncMediaKindState(host, kind) {
+    if (!host || !host.classList) { return; }
+    host.classList.toggle('relod-wcvms-video-active', kind === 'video');
+  }
+
+  function initLightboxHosts(scope) {
+    (scope || document).querySelectorAll(LB_HOST_SELECTOR).forEach(function (host) {
+      ensureZoomHint(host);
+    });
+  }
+
+  // ───────────────────────────────────────────────────────────────
+  // Экземпляр модального окна
+  // ───────────────────────────────────────────────────────────────
+
+  var lb = null;
+
+  function buildLightbox() {
+    var root = document.createElement('div');
+    root.className = 'relod-wcvms-lb';
+    root.setAttribute('role', 'dialog');
+    root.setAttribute('aria-modal', 'true');
+    root.setAttribute('aria-label', i18n('gallery', 'Галерея товара'));
+    root.tabIndex = -1;
+
+    var counter = document.createElement('div');
+    counter.className = 'relod-wcvms-lb__counter';
+    counter.setAttribute('aria-live', 'polite');
+
+    var tools = document.createElement('div');
+    tools.className = 'relod-wcvms-lb__tools';
+
+    var zoomBtn = makeButton('relod-wcvms-lb__btn relod-wcvms-lb__btn--zoom', i18n('zoomIn', 'Увеличить'), ICONS.zoom);
+    zoomBtn.appendChild(svgIcon(ICONS.zoomOut, 'relod-wcvms-icon--out'));
+    zoomBtn.firstChild.setAttribute('class', 'relod-wcvms-icon--in');
+    var fullscreenBtn = makeButton('relod-wcvms-lb__btn relod-wcvms-lb__btn--fullscreen', i18n('fullscreen', 'Во весь экран'), ICONS.expand);
+    var closeBtn = makeButton('relod-wcvms-lb__btn relod-wcvms-lb__btn--close', i18n('close', 'Закрыть'), ICONS.close);
+    tools.appendChild(zoomBtn);
+    tools.appendChild(fullscreenBtn);
+    tools.appendChild(closeBtn);
+
+    var prevBtn = makeButton('relod-wcvms-lb__nav relod-wcvms-lb__nav--prev', i18n('prev', 'Предыдущее изображение'), ICONS.prev);
+    var nextBtn = makeButton('relod-wcvms-lb__nav relod-wcvms-lb__nav--next', i18n('next', 'Следующее изображение'), ICONS.next);
+
+    var stage = document.createElement('div');
+    stage.className = 'relod-wcvms-lb__stage';
+
+    var track = document.createElement('div');
+    track.className = 'relod-wcvms-lb__track';
+    stage.appendChild(track);
+
+    var thumbs = document.createElement('div');
+    thumbs.className = 'relod-wcvms-lb__thumbs';
+
+    root.appendChild(counter);
+    root.appendChild(tools);
+    root.appendChild(prevBtn);
+    root.appendChild(nextBtn);
+    root.appendChild(stage);
+    root.appendChild(thumbs);
+
+    return {
+      root: root,
+      counter: counter,
+      zoomBtn: zoomBtn,
+      fullscreenBtn: fullscreenBtn,
+      closeBtn: closeBtn,
+      prevBtn: prevBtn,
+      nextBtn: nextBtn,
+      stage: stage,
+      track: track,
+      thumbs: thumbs,
+      items: [],
+      slides: [],
+      index: 0,
+      zoom: { scale: 1, tx: 0, ty: 0 },
+      lastFocus: null,
+      scrollY: 0
+    };
+  }
+
+  function buildSlide(item, index, total) {
+    var slide = document.createElement('div');
+    slide.className = 'relod-wcvms-lb__slide';
+    slide.setAttribute('data-index', String(index));
+    slide.setAttribute('data-kind', item.kind || 'image');
+    slide.setAttribute('aria-label', (i18n('slideOf', 'Изображение %1$s из %2$s') || '')
+      .replace('%1$s', String(index + 1))
+      .replace('%2$s', String(total)));
+
+    var figure = document.createElement('div');
+    figure.className = 'relod-wcvms-lb__figure';
+
+    if ('video' === item.kind) {
+      var video = document.createElement('video');
+      video.className = 'relod-wcvms-lb__video';
+      video.controls = true;
+      video.playsInline = true;
+      video.preload = 'none';
+      video.setAttribute('playsinline', '');
+      video.setAttribute('controlslist', 'nodownload');
+      if (item.poster) { video.poster = item.poster; }
+      video.setAttribute('data-src', item.src || '');
+      figure.appendChild(video);
+    } else {
+      var img = document.createElement('img');
+      img.className = 'relod-wcvms-lb__img';
+      img.alt = item.alt || '';
+      img.decoding = 'async';
+      img.draggable = false;
+      if (item.width) { img.width = item.width; }
+      if (item.height) { img.height = item.height; }
+      img.setAttribute('data-src', item.src || '');
+      if (item.srcset) { img.setAttribute('data-srcset', item.srcset); }
+      if (item.sizes) { img.setAttribute('data-sizes', item.sizes); }
+      figure.appendChild(img);
+    }
+
+    slide.appendChild(figure);
+    return slide;
+  }
+
+  function loadSlideMedia(slide) {
+    if (!slide || slide.dataset.relodLoaded === '1') { return; }
+    slide.dataset.relodLoaded = '1';
+
+    var img = slide.querySelector('.relod-wcvms-lb__img');
+    if (img) {
+      var srcset = img.getAttribute('data-srcset');
+      var sizes = img.getAttribute('data-sizes');
+      if (sizes) { img.sizes = sizes; }
+      if (srcset) { img.srcset = srcset; }
+      img.src = img.getAttribute('data-src') || '';
+      return;
+    }
+
+    var video = slide.querySelector('.relod-wcvms-lb__video');
+    if (video && !video.src) {
+      video.src = video.getAttribute('data-src') || '';
+    }
+  }
+
+  function preloadAround(index) {
+    if (!lb) { return; }
+    [index - 1, index, index + 1].forEach(function (i) {
+      if (i >= 0 && i < lb.slides.length) {
+        loadSlideMedia(lb.slides[i]);
       }
     });
   }
 
-  var lastPopupOpenAt = 0;
+  function buildThumbs(items) {
+    if (!lb) { return; }
+    lb.thumbs.innerHTML = '';
 
-  function shouldIgnorePopupTarget(target) {
-    return !target || !target.closest ||
-      target.closest('.relod-wcvms-lightbox') ||
-      target.closest('.relod-wcvms-slider-dot, .relod-wcvms-slider-arrow, .relod-wcvms-thumb, button, a, input, select, textarea, label');
+    var showThumbs = lightboxConf().showThumbs && items.length > 1;
+    lb.root.classList.toggle('has-thumbs', showThumbs);
+    if (!showThumbs) { return; }
+
+    items.forEach(function (item, index) {
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'relod-wcvms-lb__thumb';
+      button.setAttribute('data-index', String(index));
+      button.setAttribute('aria-label', item.title || String(index + 1));
+
+      var img = document.createElement('img');
+      img.src = item.thumb || item.src || '';
+      img.alt = '';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      img.draggable = false;
+      button.appendChild(img);
+
+      if ('video' === item.kind) {
+        var badge = document.createElement('span');
+        badge.className = 'relod-wcvms-play-icon';
+        badge.setAttribute('aria-hidden', 'true');
+        button.appendChild(badge);
+      }
+
+      lb.thumbs.appendChild(button);
+    });
   }
 
-  function getPopupContextFromTarget(target) {
-    if (!target || !target.closest) { return null; }
+  function scrollActiveThumbIntoView() {
+    if (!lb) { return; }
+    var active = lb.thumbs.querySelector('.relod-wcvms-lb__thumb.is-active');
+    if (!active || !lb.thumbs.scrollWidth) { return; }
 
-    var slide = target.closest('.relod-wcvms-slider-item[data-kind="image"], .relod-wcvms-slide[data-kind="image"]');
-    var galleryRoot = null;
+    var target = active.offsetLeft - (lb.thumbs.clientWidth - active.offsetWidth) / 2;
+    var max = lb.thumbs.scrollWidth - lb.thumbs.clientWidth;
 
-    if (slide) {
-      galleryRoot = slide.closest('[data-relod-slider], .relod-wcvms-gallery');
+    try {
+      lb.thumbs.scrollTo({
+        left: clamp(target, 0, Math.max(0, max)),
+        behavior: prefersReducedMotion() ? 'auto' : 'smooth'
+      });
+    } catch (e) {
+      lb.thumbs.scrollLeft = clamp(target, 0, Math.max(0, max));
+    }
+  }
+
+  // ── Зум ─────────────────────────────────────────────────────────
+
+  function currentSlide() {
+    return lb ? lb.slides[lb.index] : null;
+  }
+
+  /**
+   * Область просмотра активного слайда. Её рамка не зависит от transform
+   * картинки, поэтому служит стабильной системой координат для зума и панорамы.
+   */
+  function currentFigure() {
+    var slide = currentSlide();
+    return slide ? slide.querySelector('.relod-wcvms-lb__figure') : null;
+  }
+
+  function currentZoomTarget() {
+    var slide = currentSlide();
+    return slide ? slide.querySelector('.relod-wcvms-lb__img') : null;
+  }
+
+  function isZoomed() {
+    return !!lb && lb.zoom.scale > 1.001;
+  }
+
+  function applyZoomTransform(animate) {
+    var img = currentZoomTarget();
+    if (!img) { return; }
+
+    img.style.transition = (animate && !prefersReducedMotion()) ? 'transform .28s cubic-bezier(.22,.61,.36,1)' : 'none';
+    img.style.transform = 'translate3d(' + lb.zoom.tx + 'px,' + lb.zoom.ty + 'px,0) scale(' + lb.zoom.scale + ')';
+
+    lb.root.classList.toggle('is-zoomed', isZoomed());
+    if (lb.zoomBtn) {
+      var label = isZoomed() ? i18n('zoomOut', 'Уменьшить') : i18n('zoomIn', 'Увеличить');
+      lb.zoomBtn.setAttribute('aria-label', label);
+      lb.zoomBtn.title = label;
+    }
+  }
+
+  function clampPan() {
+    var img = currentZoomTarget();
+    var figure = currentFigure();
+    if (!img || !figure) { return; }
+
+    var baseWidth = img.clientWidth || img.offsetWidth || 0;
+    var baseHeight = img.clientHeight || img.offsetHeight || 0;
+
+    var maxX = Math.max(0, (baseWidth * lb.zoom.scale - figure.clientWidth) / 2);
+    var maxY = Math.max(0, (baseHeight * lb.zoom.scale - figure.clientHeight) / 2);
+
+    lb.zoom.tx = clamp(lb.zoom.tx, -maxX, maxX);
+    lb.zoom.ty = clamp(lb.zoom.ty, -maxY, maxY);
+  }
+
+  function resetZoom(animate) {
+    if (!lb) { return; }
+    lb.zoom.scale = 1;
+    lb.zoom.tx = 0;
+    lb.zoom.ty = 0;
+    applyZoomTransform(!!animate);
+  }
+
+  /**
+   * Меняет масштаб так, чтобы точка (clientX, clientY) осталась под курсором.
+   */
+  function zoomTo(scale, clientX, clientY, animate) {
+    var img = currentZoomTarget();
+    if (!lb || !img) { return; }
+
+    var maxZoom = lightboxConf().maxZoom;
+    var next = clamp(scale, 1, maxZoom);
+    var previous = lb.zoom.scale;
+
+    if (Math.abs(next - previous) < 0.001) { return; }
+
+    // Центр берём у области просмотра: он не зависит от уже применённого
+    // transform, поэтому точка под курсором остаётся на месте и при повторных зумах.
+    var figure = currentFigure();
+    if (!figure) { return; }
+
+    var rect = figure.getBoundingClientRect();
+    var centerX = rect.left + rect.width / 2;
+    var centerY = rect.top + rect.height / 2;
+
+    var dx = (typeof clientX === 'number' ? clientX : centerX) - centerX;
+    var dy = (typeof clientY === 'number' ? clientY : centerY) - centerY;
+
+    if (next === 1) {
+      lb.zoom.tx = 0;
+      lb.zoom.ty = 0;
     } else {
-      galleryRoot = target.closest('[data-relod-slider], .relod-wcvms-gallery');
+      lb.zoom.tx = dx - (next / previous) * (dx - lb.zoom.tx);
+      lb.zoom.ty = dy - (next / previous) * (dy - lb.zoom.ty);
+    }
 
-      if (galleryRoot) {
-        slide = galleryRoot.matches('[data-relod-slider]') ?
-          getActiveSliderItem(galleryRoot) :
-          getActiveGallerySlide(galleryRoot);
+    lb.zoom.scale = next;
+    clampPan();
+    applyZoomTransform(animate !== false);
+  }
 
-        if (!slide || slide.getAttribute('data-kind') !== 'image') {
-          slide = null;
+  function toggleZoom(clientX, clientY) {
+    if (!currentZoomTarget()) { return; }
+    if (isZoomed()) {
+      resetZoom(true);
+    } else {
+      zoomTo(lightboxConf().stepZoom, clientX, clientY, true);
+    }
+  }
+
+  // ── Навигация ───────────────────────────────────────────────────
+
+  function setTrackOffset(deltaX, animate) {
+    if (!lb) { return; }
+    var base = -lb.index * 100;
+    lb.track.style.transition = (animate && !prefersReducedMotion())
+      ? 'transform .32s cubic-bezier(.22,.61,.36,1)'
+      : 'none';
+    lb.track.style.transform = deltaX
+      ? 'translate3d(calc(' + base + '% + ' + deltaX + 'px), 0, 0)'
+      : 'translate3d(' + base + '%, 0, 0)';
+  }
+
+  function pauseAllLightboxVideos(exceptIndex) {
+    if (!lb) { return; }
+    lb.slides.forEach(function (slide, index) {
+      if (index === exceptIndex) { return; }
+      slide.querySelectorAll('video').forEach(function (video) {
+        try { video.pause(); } catch (e) {}
+      });
+    });
+  }
+
+  function goToLightboxSlide(index, animate) {
+    if (!lb || !lb.items.length) { return; }
+
+    var normalized = clamp(parseInt(index, 10) || 0, 0, lb.items.length - 1);
+    var changed = normalized !== lb.index;
+
+    lb.index = normalized;
+    if (changed) { resetZoom(false); }
+
+    setTrackOffset(0, animate !== false);
+    preloadAround(normalized);
+    pauseAllLightboxVideos(normalized);
+
+    lb.slides.forEach(function (slide, i) {
+      slide.classList.toggle('is-active', i === normalized);
+      slide.setAttribute('aria-hidden', i === normalized ? 'false' : 'true');
+    });
+
+    lb.thumbs.querySelectorAll('.relod-wcvms-lb__thumb').forEach(function (thumb, i) {
+      var active = i === normalized;
+      thumb.classList.toggle('is-active', active);
+      thumb.setAttribute('aria-current', active ? 'true' : 'false');
+    });
+
+    lb.counter.textContent = (normalized + 1) + ' / ' + lb.items.length;
+
+    var single = lb.items.length < 2;
+    lb.root.classList.toggle('is-single', single);
+    lb.prevBtn.disabled = single || normalized <= 0;
+    lb.nextBtn.disabled = single || normalized >= lb.items.length - 1;
+    lb.root.classList.toggle('is-video', (lb.items[normalized] || {}).kind === 'video');
+
+    scrollActiveThumbIntoView();
+  }
+
+  function stepLightbox(delta) {
+    if (!lb) { return; }
+    goToLightboxSlide(lb.index + delta, true);
+  }
+
+  // ── Свайп / панорамирование ─────────────────────────────────────
+
+  function bindStageGestures() {
+    var pointers = {};
+    var pointerCount = 0;
+    var mode = null; // 'swipe' | 'pan' | 'pinch'
+    var start = { x: 0, y: 0, lastX: 0, tx: 0, ty: 0, scale: 1, distance: 0, midX: 0, midY: 0, target: null };
+    var moved = false;
+    var lastTapAt = 0;
+
+    function trackPointer(e) {
+      if (!Object.prototype.hasOwnProperty.call(pointers, e.pointerId)) { pointerCount += 1; }
+      pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+    }
+
+    function forgetPointer(e) {
+      if (Object.prototype.hasOwnProperty.call(pointers, e.pointerId)) {
+        delete pointers[e.pointerId];
+        pointerCount = Math.max(0, pointerCount - 1);
+      }
+    }
+
+    function pointerList() {
+      return Object.keys(pointers).map(function (key) { return pointers[key]; });
+    }
+
+    function distanceBetween(a, b) {
+      var dx = a.x - b.x;
+      var dy = a.y - b.y;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function beginPinch() {
+      var list = pointerList();
+      mode = 'pinch';
+      start.distance = distanceBetween(list[0], list[1]) || 1;
+      start.scale = lb.zoom.scale;
+      start.tx = lb.zoom.tx;
+      start.ty = lb.zoom.ty;
+      start.midX = (list[0].x + list[1].x) / 2;
+      start.midY = (list[0].y + list[1].y) / 2;
+    }
+
+    function endGesture() {
+      if (!lb) { return; }
+
+      if (mode === 'swipe') {
+        var deltaX = start.lastX - start.x;
+        var threshold = Math.max(40, lb.stage.clientWidth * 0.12);
+        if (Math.abs(deltaX) >= threshold && lb.items.length > 1) {
+          goToLightboxSlide(lb.index + (deltaX < 0 ? 1 : -1), true);
+        } else {
+          setTrackOffset(0, true);
+        }
+      }
+
+      mode = null;
+    }
+
+    lb.stage.addEventListener('pointerdown', function (e) {
+      if (!lb) { return; }
+      if (e.target.closest('button, a, video')) { return; }
+      if (e.pointerType === 'mouse' && e.button !== 0) { return; }
+
+      trackPointer(e);
+      moved = false;
+
+      // Запоминаем цель до захвата указателя: setPointerCapture() подменяет
+      // e.target у последующих pointermove/pointerup на саму сцену.
+      start.target = e.target;
+
+      try { lb.stage.setPointerCapture(e.pointerId); } catch (err) {}
+
+      if (pointerCount === 2) {
+        beginPinch();
+        return;
+      }
+
+      start.x = e.clientX;
+      start.y = e.clientY;
+      start.lastX = e.clientX;
+      start.tx = lb.zoom.tx;
+      start.ty = lb.zoom.ty;
+      mode = isZoomed() ? 'pan' : null;
+      lb.root.classList.add('is-grabbing');
+    });
+
+    lb.stage.addEventListener('pointermove', function (e) {
+      if (!lb || !Object.prototype.hasOwnProperty.call(pointers, e.pointerId)) { return; }
+      pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+
+      if (mode === 'pinch' && pointerCount >= 2) {
+        var list = pointerList();
+        if (list.length >= 2) {
+          var ratio = distanceBetween(list[0], list[1]) / start.distance;
+          lb.zoom.scale = start.scale;
+          lb.zoom.tx = start.tx;
+          lb.zoom.ty = start.ty;
+          zoomTo(start.scale * ratio, start.midX, start.midY, false);
+        }
+        e.preventDefault();
+        return;
+      }
+
+      var dx = e.clientX - start.x;
+      var dy = e.clientY - start.y;
+      start.lastX = e.clientX;
+
+      if (Math.abs(dx) > 6 || Math.abs(dy) > 6) { moved = true; }
+
+      if (mode === 'pan') {
+        lb.zoom.tx = start.tx + dx;
+        lb.zoom.ty = start.ty + dy;
+        clampPan();
+        applyZoomTransform(false);
+        e.preventDefault();
+        return;
+      }
+
+      if (!mode && Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) && lb.items.length > 1) {
+        mode = 'swipe';
+      }
+
+      if (mode === 'swipe') {
+        setTrackOffset(dx, false);
+        e.preventDefault();
+      }
+    }, { passive: false });
+
+    function release(e) {
+      if (!lb) { return; }
+      forgetPointer(e);
+      try { lb.stage.releasePointerCapture(e.pointerId); } catch (err) {}
+
+      if (pointerCount < 2 && mode === 'pinch') {
+        mode = null;
+        if (lb.zoom.scale <= 1.05) { resetZoom(true); }
+        return;
+      }
+
+      if (pointerCount === 0) {
+        lb.root.classList.remove('is-grabbing');
+        endGesture();
+
+        if (!moved && e.type === 'pointerup') {
+          handleStageTap(e);
         }
       }
     }
 
-    if (!slide || !galleryRoot || !slide.classList.contains('is-active')) {
-      return null;
+    lb.stage.addEventListener('pointerup', release);
+    lb.stage.addEventListener('pointercancel', release);
+
+    function handleStageTap(e) {
+      var origin = start.target || e.target;
+      if (!origin || !origin.closest || origin.closest('button, a, video')) { return; }
+
+      var onImage = !!origin.closest('.relod-wcvms-lb__img');
+
+      // Клик мимо изображения закрывает модалку — привычное поведение лайтбокса.
+      if (!onImage) {
+        if (!isZoomed()) { closeLightbox(); }
+        else { resetZoom(true); }
+        return;
+      }
+
+      if (e.pointerType === 'touch') {
+        var now = Date.now();
+        if (now - lastTapAt < 300) {
+          lastTapAt = 0;
+          toggleZoom(e.clientX, e.clientY);
+        } else {
+          lastTapAt = now;
+        }
+        return;
+      }
+
+      toggleZoom(e.clientX, e.clientY);
     }
 
-    return {
-      slide: slide,
-      galleryRoot: galleryRoot
-    };
+    lb.stage.addEventListener('wheel', function (e) {
+      if (!lb || !currentZoomTarget()) { return; }
+      e.preventDefault();
+      var factor = Math.exp(-e.deltaY * 0.0015);
+      zoomTo(lb.zoom.scale * factor, e.clientX, e.clientY, false);
+    }, { passive: false });
+
+    lb.stage.addEventListener('dblclick', function (e) {
+      if (e.target.closest('.relod-wcvms-lb__img')) {
+        e.preventDefault();
+      }
+    });
   }
 
-  function tryOpenImagePopupFromEvent(e, allowDefaultPrevented) {
-    if (!e || !e.target || (!allowDefaultPrevented && e.defaultPrevented)) { return false; }
+  // ── Полноэкранный режим ─────────────────────────────────────────
 
-    var target = e.target.nodeType === 1 ? e.target : e.target.parentElement;
-    if (shouldIgnorePopupTarget(target)) { return false; }
+  function fullscreenElement() {
+    return document.fullscreenElement || document.webkitFullscreenElement || null;
+  }
 
-    var context = getPopupContextFromTarget(target);
-    if (!context) { return false; }
+  function toggleFullscreen() {
+    if (!lb) { return; }
 
-    var suppressUntil = parseInt(context.galleryRoot.dataset.relodSuppressClickUntil || '0', 10);
-    if (suppressUntil && Date.now() < suppressUntil) { return false; }
-
-    if (lastPopupOpenAt && Date.now() - lastPopupOpenAt < 300) {
-      return false;
+    if (fullscreenElement()) {
+      var exit = document.exitFullscreen || document.webkitExitFullscreen;
+      if (exit) { exit.call(document); }
+      return;
     }
 
-    var img = getPopupImageFromContainer(context.slide);
-    if (!img) { return false; }
-
-    e.preventDefault();
-    e.stopPropagation();
-    openImagePopup(img);
-    lastPopupOpenAt = Date.now();
-    return true;
+    var request = lb.root.requestFullscreen || lb.root.webkitRequestFullscreen;
+    if (request) {
+      var result = request.call(lb.root);
+      if (result && typeof result.catch === 'function') {
+        result.catch(function () { lb.root.classList.toggle('is-theatre'); });
+      }
+    } else {
+      // Safari на iOS не даёт fullscreen для div — прячем служебные элементы.
+      lb.root.classList.toggle('is-theatre');
+    }
   }
 
-  function handleImagePopupClick(e) {
-    tryOpenImagePopupFromEvent(e, false);
+  function syncFullscreenState() {
+    if (!lb) { return; }
+    var active = fullscreenElement() === lb.root;
+    lb.root.classList.toggle('is-fullscreen', active);
+    var label = active ? i18n('exitFullscreen', 'Выйти из полноэкранного режима') : i18n('fullscreen', 'Во весь экран');
+    lb.fullscreenBtn.setAttribute('aria-label', label);
+    lb.fullscreenBtn.title = label;
   }
 
-  function handleImagePopupPointerUp(e) {
-    if (!e || e.pointerType !== 'mouse' || e.button !== 0) { return; }
-    tryOpenImagePopupFromEvent(e, true);
+  // ── Блокировка прокрутки страницы ───────────────────────────────
+
+  function lockScroll() {
+    if (!lb) { return; }
+    lb.scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+    document.documentElement.classList.add('relod-wcvms-popup-open');
   }
 
-  document.addEventListener('click', handleImagePopupClick, true);
-  document.addEventListener('pointerup', handleImagePopupPointerUp, false);
+  function unlockScroll(scrollY) {
+    document.documentElement.classList.remove('relod-wcvms-popup-open');
+    if (typeof scrollY === 'number') {
+      window.scrollTo(0, scrollY);
+    }
+  }
 
-  $(document)
-    .on('click', '.relod-wcvms-lightbox, .relod-wcvms-lightbox__close', function (e) {
-      if (e.target === this || e.target.classList.contains('relod-wcvms-lightbox__close')) {
-        closeImagePopup();
+  // ── Фокус ───────────────────────────────────────────────────────
+
+  function focusableNodes() {
+    if (!lb) { return []; }
+    return Array.prototype.slice
+      .call(lb.root.querySelectorAll('button:not([disabled])'))
+      .filter(function (node) { return node.offsetParent !== null; });
+  }
+
+  function trapFocus(e) {
+    if (!lb || e.key !== 'Tab') { return; }
+
+    var nodes = focusableNodes();
+    if (!nodes.length) { return; }
+
+    var first = nodes[0];
+    var last = nodes[nodes.length - 1];
+
+    if (!lb.root.contains(document.activeElement)) {
+      e.preventDefault();
+      first.focus();
+      return;
+    }
+
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+
+  // ── Открытие / закрытие ─────────────────────────────────────────
+
+  function closeLightbox() {
+    if (!lb) { return; }
+
+    var instance = lb;
+    lb = null;
+
+    if (fullscreenElement() === instance.root) {
+      var exit = document.exitFullscreen || document.webkitExitFullscreen;
+      if (exit) { try { exit.call(document); } catch (e) {} }
+    }
+
+    instance.root.classList.remove('is-visible');
+    unlockScroll(instance.scrollY);
+
+    window.setTimeout(function () {
+      if (instance.root && instance.root.parentNode) {
+        instance.root.parentNode.removeChild(instance.root);
+      }
+    }, prefersReducedMotion() ? 0 : 200);
+
+    if (instance.lastFocus && typeof instance.lastFocus.focus === 'function') {
+      try { instance.lastFocus.focus({ preventScroll: true }); } catch (e) {}
+    }
+  }
+
+  function openLightbox(items, startIndex, trigger) {
+    if (!Array.isArray(items) || !items.length) { return; }
+
+    closeLightbox();
+
+    lb = buildLightbox();
+    lb.items = items;
+    lb.lastFocus = trigger || document.activeElement;
+
+    items.forEach(function (item, index) {
+      var slide = buildSlide(item, index, items.length);
+      lb.slides.push(slide);
+      lb.track.appendChild(slide);
+    });
+
+    buildThumbs(items);
+
+    document.body.appendChild(lb.root);
+    lockScroll();
+
+    bindStageGestures();
+
+    lb.closeBtn.addEventListener('click', closeLightbox);
+    lb.fullscreenBtn.addEventListener('click', toggleFullscreen);
+    lb.zoomBtn.addEventListener('click', function () { toggleZoom(); });
+    lb.prevBtn.addEventListener('click', function () { stepLightbox(-1); });
+    lb.nextBtn.addEventListener('click', function () { stepLightbox(1); });
+
+    lb.thumbs.addEventListener('click', function (e) {
+      var thumb = e.target.closest('.relod-wcvms-lb__thumb');
+      if (thumb) {
+        goToLightboxSlide(thumb.getAttribute('data-index'), true);
       }
     });
 
+    goToLightboxSlide(startIndex, false);
+    syncFullscreenState();
+
+    window.requestAnimationFrame(function () {
+      if (lb) {
+        lb.root.classList.add('is-visible');
+        // Фокус на самом диалоге: клавиатура работает сразу, но кнопка
+        // «Закрыть» не подсвечивается кольцом после клика мышью.
+        try { lb.root.focus({ preventScroll: true }); } catch (e) {}
+      }
+    });
+  }
+
+  function openLightboxFromHost(host, mediaElement) {
+    var items = getLightboxItems(host);
+    if (!items.length) { return false; }
+
+    var element = mediaElement || getActiveMediaElement(host);
+    var index = findItemIndexByKey(items, resolveMediaKey(element));
+
+    openLightbox(items, index < 0 ? 0 : index, element || host);
+    return true;
+  }
+
+  // ── Реакция на клики по галерее товара ──────────────────────────
+
+  var lastOpenAt = 0;
+
+  function shouldIgnoreOpenTarget(target) {
+    if (!target || !target.closest) { return true; }
+    if (target.closest('.relod-wcvms-lb')) { return true; }
+    if (target.closest('.relod-wcvms-zoom-hint')) { return false; }
+    return !!target.closest('.relod-wcvms-slider-dot, .relod-wcvms-slider-arrow, .relod-wcvms-thumb, button, a, input, select, textarea, label');
+  }
+
+  function resolveOpenContext(target) {
+    if (!target || !target.closest) { return null; }
+
+    var host = getLightboxHost(target);
+    if (!host) { return null; }
+
+    var element;
+
+    if (target.closest('.relod-wcvms-zoom-hint')) {
+      element = getActiveMediaElement(host);
+    } else {
+      element = target.closest('.relod-wcvms-slider-item, .relod-wcvms-slide') || getActiveMediaElement(host);
+    }
+
+    if (!element) { return null; }
+
+    // Видео открываем не в зуме, а оставляем воспроизведение на месте.
+    if (element.getAttribute && element.getAttribute('data-kind') === 'video') { return null; }
+
+    if (element.classList &&
+      (element.classList.contains('relod-wcvms-slider-item') || element.classList.contains('relod-wcvms-slide')) &&
+      !element.classList.contains('is-active')) {
+      return null;
+    }
+
+    return { host: host, element: element };
+  }
+
+  function tryOpenFromEvent(e, allowDefaultPrevented) {
+    if (!e || !e.target || (!allowDefaultPrevented && e.defaultPrevented)) { return false; }
+
+    var target = e.target.nodeType === 1 ? e.target : e.target.parentElement;
+    if (shouldIgnoreOpenTarget(target)) { return false; }
+
+    var context = resolveOpenContext(target);
+    if (!context) { return false; }
+
+    var suppressUntil = parseInt(context.host.dataset.relodSuppressClickUntil || '0', 10);
+    var wrap = context.host.closest('[data-relod-slider]') || context.host;
+    var wrapSuppress = parseInt((wrap.dataset || {}).relodSuppressClickUntil || '0', 10);
+
+    if ((suppressUntil && Date.now() < suppressUntil) || (wrapSuppress && Date.now() < wrapSuppress)) {
+      return false;
+    }
+
+    if (lastOpenAt && Date.now() - lastOpenAt < 300) { return false; }
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!openLightboxFromHost(context.host, context.element)) { return false; }
+
+    lastOpenAt = Date.now();
+    return true;
+  }
+
+  document.addEventListener('click', function (e) {
+    tryOpenFromEvent(e, false);
+  }, true);
+
+  document.addEventListener('pointerup', function (e) {
+    if (!e || e.pointerType !== 'mouse' || e.button !== 0) { return; }
+    tryOpenFromEvent(e, true);
+  }, false);
+
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') {
-      closeImagePopup();
+    if (!lb) {
+      // Открытие с клавиатуры по значку лупы.
+      if ((e.key === 'Enter' || e.key === ' ') && document.activeElement &&
+        document.activeElement.classList &&
+        document.activeElement.classList.contains('relod-wcvms-zoom-hint')) {
+        var host = getLightboxHost(document.activeElement);
+        if (host) {
+          e.preventDefault();
+          openLightboxFromHost(host);
+        }
+      }
+      return;
+    }
+
+    switch (e.key) {
+      case 'Escape':
+        e.preventDefault();
+        if (isZoomed()) { resetZoom(true); } else { closeLightbox(); }
+        break;
+      case 'ArrowLeft':
+        e.preventDefault();
+        stepLightbox(-1);
+        break;
+      case 'ArrowRight':
+        e.preventDefault();
+        stepLightbox(1);
+        break;
+      case 'Home':
+        e.preventDefault();
+        goToLightboxSlide(0, true);
+        break;
+      case 'End':
+        e.preventDefault();
+        goToLightboxSlide(lb.items.length - 1, true);
+        break;
+      case '+':
+      case '=':
+        e.preventDefault();
+        zoomTo(lb.zoom.scale * 1.4, undefined, undefined, true);
+        break;
+      case '-':
+      case '_':
+        e.preventDefault();
+        zoomTo(lb.zoom.scale / 1.4, undefined, undefined, true);
+        break;
+      default:
+        trapFocus(e);
     }
   });
 
+  ['fullscreenchange', 'webkitfullscreenchange'].forEach(function (eventName) {
+    document.addEventListener(eventName, syncFullscreenState);
+  });
+
+  window.addEventListener('resize', function () {
+    if (!lb) { return; }
+    clampPan();
+    applyZoomTransform(false);
+    setTrackOffset(0, false);
+    scrollActiveThumbIntoView();
+  });
+
+  window.addEventListener('orientationchange', function () {
+    if (!lb) { return; }
+    window.setTimeout(function () {
+      if (!lb) { return; }
+      resetZoom(false);
+      setTrackOffset(0, false);
+    }, 150);
+  });
+
+  // ── Синхронизация с выбором вариации ────────────────────────────
+
   var originalApplyPayload = applyPayload;
   applyPayload = function (payload) {
-    closeImagePopup();
+    closeLightbox();
     originalApplyPayload(payload);
+
+    if (payload && Array.isArray(payload.lightbox_items)) {
+      updateAllLightboxItems(payload.lightbox_items);
+    }
+
+    initLightboxHosts(document);
   };
 
   document.addEventListener('DOMContentLoaded', function () {
     initGalleries(document);
     initSliders(document);
+    initLightboxHosts(document);
     unlockVariationSelectOptions($('form.variations_form').first());
     updateSwatchesAvailability($('form.variations_form').first());
     syncSwatchesWithForm($('form.variations_form').first());

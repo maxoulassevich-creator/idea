@@ -2,7 +2,7 @@
 /**
  * Plugin Name: RELOD WC Variation Media Swatches
  * Description: Цветовые swatches для вариаций WooCommerce, галереи изображений/видео для вариаций, шорткоды для страницы товара и интеграция с Woo Product Grid (Unlimited Elements).
- * Version: 1.4.4
+ * Version: 1.5.0
  * Author: OpenAI for RELOD
  * Text Domain: relod-wc-variation-media-swatches
  * Requires at least: 6.4
@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'RELOD_WCVMS_VERSION', '1.4.4' );
+define( 'RELOD_WCVMS_VERSION', '1.5.0' );
 define( 'RELOD_WCVMS_FILE', __FILE__ );
 define( 'RELOD_WCVMS_PATH', plugin_dir_path( __FILE__ ) );
 define( 'RELOD_WCVMS_URL', plugin_dir_url( __FILE__ ) );

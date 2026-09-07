@@ -333,9 +333,18 @@ class Frontend {
 		$ratio     = $this->resolve_stage_ratio( (string) $atts['ratio'] );
 		$css_class = trim( 'relod-wcvms-main-image-wrap relod-wcvms-fit--' . $fit . ( $fill ? ' relod-wcvms-fill' : '' ) . ' ' . (string) $atts['class'] );
 
-		$inline_style = $fill ? '' : ( 'aspect-ratio:' . esc_attr( $ratio ) . ';' );
+		$inline_style   = $fill ? '' : ( 'aspect-ratio:' . esc_attr( $ratio ) . ';' );
+		$lightbox_items = $this->build_lightbox_items( $product_id, $variation_id );
 
-		return '<div class="' . esc_attr( $css_class ) . '" data-relod-main-image="1" data-product-id="' . esc_attr( (string) $product_id ) . '" style="' . $inline_style . '">' . $image_html . '</div>';
+		return '<div class="' . esc_attr( $css_class ) . '"'
+			. ' data-relod-main-image="1"'
+			. ( empty( $lightbox_items ) ? '' : ' data-relod-lightbox="1"' )
+			. ' data-product-id="' . esc_attr( (string) $product_id ) . '"'
+			. ' data-variation-id="' . esc_attr( (string) $variation_id ) . '"'
+			. ' style="' . $inline_style . '">'
+			. $image_html
+			. $this->render_lightbox_data( $lightbox_items )
+			. '</div>';
 	}
 
 	// -------------------------------------------------------------------------
@@ -392,6 +401,7 @@ class Frontend {
 		?>
 		<div class="<?php echo esc_attr( $css_class ); ?>"
 			 data-relod-slider="1"
+			 data-relod-lightbox="1"
 			 data-relod-instance="<?php echo esc_attr( $this->generate_slider_instance_id() ); ?>"
 			 data-product-id="<?php echo esc_attr( (string) $product_id ); ?>"
 			 data-variation-id="<?php echo esc_attr( (string) $variation_id ); ?>"
@@ -402,6 +412,7 @@ class Frontend {
 			 style="<?php echo $inline_style; // phpcs:ignore ?>">
 
 			<?php echo $this->render_slider_inner( $items, $show_arrows ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+			<?php echo $this->render_lightbox_data( $this->build_lightbox_items( $product_id, $variation_id, $video_fit ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 
 		</div>
 		<?php
@@ -532,6 +543,23 @@ class Frontend {
 				'nonce'       => wp_create_nonce( 'relod_wcvms_nonce' ),
 				'productId'   => $current_product_id,
 				'historyMode' => $this->settings->get_history_mode(),
+				'lightbox'    => [
+					'maxZoom'    => 3.5,
+					'stepZoom'   => 2.2,
+					'showThumbs' => true,
+				],
+				'i18n'        => [
+					'gallery'        => __( 'Галерея товара', 'relod-wc-variation-media-swatches' ),
+					'close'          => __( 'Закрыть', 'relod-wc-variation-media-swatches' ),
+					'prev'           => __( 'Предыдущее изображение', 'relod-wc-variation-media-swatches' ),
+					'next'           => __( 'Следующее изображение', 'relod-wc-variation-media-swatches' ),
+					'zoomIn'         => __( 'Увеличить', 'relod-wc-variation-media-swatches' ),
+					'zoomOut'        => __( 'Уменьшить', 'relod-wc-variation-media-swatches' ),
+					'fullscreen'     => __( 'Во весь экран', 'relod-wc-variation-media-swatches' ),
+					'exitFullscreen' => __( 'Выйти из полноэкранного режима', 'relod-wc-variation-media-swatches' ),
+					'openGallery'    => __( 'Открыть изображение во весь экран', 'relod-wc-variation-media-swatches' ),
+					'slideOf'        => __( 'Изображение %1$s из %2$s', 'relod-wc-variation-media-swatches' ),
+				],
 				'selectors'   => [
 					'gallery'          => '.relod-wcvms-gallery-wrap, .relod-wcpv-gallery-wrap, [data-relod-gallery-root]',
 					'shortcodeGallery' => '[data-relod-shortcode-gallery]',
@@ -638,8 +666,10 @@ class Frontend {
 			'full',
 			false,
 			[
-				'class'   => 'relod-wcvms-main-img relod-wcvms-fit--' . esc_attr( $fit_class ),
-				'loading' => 'eager',
+				'class'                  => 'relod-wcvms-main-img relod-wcvms-fit--' . esc_attr( $fit_class ),
+				'loading'                => 'eager',
+				'data-relod-popup-image' => '1',
+				'data-relod-media-key'   => 'image_' . $image_id,
 			]
 		) ?: '';
 	}
@@ -1010,6 +1040,7 @@ class Frontend {
 			'stock_html'                  => wc_get_stock_html( $variation ),
 			'gallery_html'                => $this->get_gallery_html( $product->get_id(), $variation->get_id(), 'relod-wcvms-gallery-wrap', '', '' ),
 			'main_image_html'             => $this->get_main_image_html( $product->get_id(), $variation->get_id() ),
+			'lightbox_items'              => $this->build_lightbox_items( $product->get_id(), $variation->get_id() ),
 			'shortcode_gallery_inner_map' => $shortcode_gallery_inner_map,
 			'slider_inner_html_map'       => $slider_inner_html_map,
 		];
@@ -1077,7 +1108,8 @@ class Frontend {
 		ob_start();
 		?>
 		<div class="<?php echo esc_attr( $classes ); ?>" data-relod-gallery-root="1" data-product-id="<?php echo esc_attr( (string) $product_id ); ?>" data-variation-id="<?php echo esc_attr( (string) $variation_id ); ?>" style="opacity:1; transition:opacity .25s ease-in-out; --relod-wcvms-stage-ratio: <?php echo esc_attr( $stage_ratio ); ?>;">
-			<div class="relod-wcvms-gallery" data-pause-others="1" data-video-fit="<?php echo esc_attr( $video_fit ); ?>">
+			<div class="relod-wcvms-gallery" data-relod-lightbox="1" data-pause-others="1" data-video-fit="<?php echo esc_attr( $video_fit ); ?>">
+				<?php echo $this->render_lightbox_data( $this->build_lightbox_items( $product_id, $variation_id, $video_fit ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 				<div class="relod-wcvms-stage">
 					<?php foreach ( $items as $index => $item ) : ?>
 						<div class="relod-wcvms-slide <?php echo 0 === $index ? 'is-active' : ''; ?>" data-index="<?php echo esc_attr( (string) $index ); ?>" data-kind="<?php echo esc_attr( $item['kind'] ); ?>">
@@ -1120,6 +1152,7 @@ class Frontend {
 		<div class="<?php echo esc_attr( $classes ); ?>"
 			 data-relod-slider="1"
 			 data-relod-shortcode-gallery="1"
+			 data-relod-lightbox="1"
 			 data-relod-instance="<?php echo esc_attr( $this->generate_slider_instance_id() ); ?>"
 			 data-product-id="<?php echo esc_attr( (string) $product_id ); ?>"
 			 data-variation-id="<?php echo esc_attr( (string) $variation_id ); ?>"
@@ -1132,6 +1165,7 @@ class Frontend {
 			 style="<?php echo $style; // phpcs:ignore ?>">
 
 			<?php echo $this->render_slider_inner( $items, $show_arrows ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+			<?php echo $this->render_lightbox_data( $this->build_lightbox_items( $product_id, $variation_id, $video_fit ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 
 		</div>
 		<?php
@@ -1160,83 +1194,87 @@ class Frontend {
 	// Media item builders
 	// -------------------------------------------------------------------------
 
-	private function build_media_items( int $product_id, int $variation_id, string $video_fit, bool $include_main_media = true ): array {
+	/**
+	 * Собирает упорядоченный список медиа (id + тип) для товара/вариации.
+	 *
+	 * Порядок и правила дедупликации те же, что и раньше в build_media_items():
+	 * основное медиа всегда участвует в дедупликации, но попадает в результат
+	 * только при $include_main_media = true.
+	 *
+	 * @return array<int, array{kind:string, id:int}>
+	 */
+	private function collect_media_ids( int $product_id, int $variation_id, bool $include_main_media = true ): array {
 		$product = wc_get_product( $product_id );
 
 		if ( $variation_id > 0 ) {
 			$variation = wc_get_product( $variation_id );
 			if ( $variation instanceof \WC_Product_Variation && $variation->get_parent_id() === $product_id ) {
-				$variation_items       = [];
-				$variation_added       = [];
-				$primary_stage_rendered = false;
+				$variation_refs  = [];
+				$variation_added = [];
 
-				$image_id = $variation->get_image_id();
-				if ( $image_id ) {
+				$image_id = (int) $variation->get_image_id();
+				if ( $image_id > 0 ) {
 					$variation_added[ 'image_' . $image_id ] = true;
 					if ( $include_main_media ) {
-						$image_item = $this->build_image_item( $image_id, ! $primary_stage_rendered );
-						if ( ! empty( $image_item ) ) {
-							$variation_items[]       = $image_item;
-							$primary_stage_rendered = true;
-						}
+						$variation_refs[] = [
+							'kind' => 'image',
+							'id'   => $image_id,
+						];
 					}
 				}
 
 				foreach ( $this->meta->get_variation_gallery_image_ids( $variation_id ) as $img_id ) {
-					if ( ! empty( $variation_added[ 'image_' . $img_id ] ) ) {
+					$img_id = (int) $img_id;
+					if ( $img_id < 1 || ! empty( $variation_added[ 'image_' . $img_id ] ) ) {
 						continue;
 					}
-					$image_item = $this->build_image_item( $img_id, ! $primary_stage_rendered );
-					if ( ! empty( $image_item ) ) {
-						$variation_items[]                       = $image_item;
-						$variation_added[ 'image_' . $img_id ] = true;
-						$primary_stage_rendered                  = true;
-					}
+					$variation_added[ 'image_' . $img_id ] = true;
+					$variation_refs[]                      = [
+						'kind' => 'image',
+						'id'   => $img_id,
+					];
 				}
 
 				foreach ( $this->meta->get_variation_gallery_video_ids( $variation_id ) as $video_id ) {
-					if ( ! empty( $variation_added[ 'video_' . $video_id ] ) ) {
+					$video_id = (int) $video_id;
+					if ( $video_id < 1 || ! empty( $variation_added[ 'video_' . $video_id ] ) ) {
 						continue;
 					}
-					$video_item = $this->build_video_item( $video_id, $video_fit, ! $primary_stage_rendered );
-					if ( ! empty( $video_item ) ) {
-						$variation_items[]                       = $video_item;
-						$variation_added[ 'video_' . $video_id ] = true;
-						$primary_stage_rendered                  = true;
-					}
+					$variation_added[ 'video_' . $video_id ] = true;
+					$variation_refs[]                        = [
+						'kind' => 'video',
+						'id'   => $video_id,
+					];
 				}
 
-				if ( ! empty( $variation_items ) ) {
-					return array_values( $variation_items );
+				if ( ! empty( $variation_refs ) ) {
+					return $variation_refs;
 				}
 			}
 		}
 
-		$items                  = [];
-		$added                  = [];
-		$primary_stage_rendered = false;
+		$refs  = [];
+		$added = [];
 
-		$main_video = $this->meta->get_product_main_video_id( $product_id );
+		$main_video = (int) $this->meta->get_product_main_video_id( $product_id );
 		if ( $main_video > 0 ) {
 			$added[ 'video_' . $main_video ] = true;
 			if ( $include_main_media ) {
-				$video_item = $this->build_video_item( $main_video, $video_fit, ! $primary_stage_rendered );
-				if ( ! empty( $video_item ) ) {
-					$items[]                = $video_item;
-					$primary_stage_rendered = true;
-				}
+				$refs[] = [
+					'kind' => 'video',
+					'id'   => $main_video,
+				];
 			}
 		}
 
-		$featured_id = get_post_thumbnail_id( $product_id );
-		if ( $featured_id ) {
+		$featured_id = (int) get_post_thumbnail_id( $product_id );
+		if ( $featured_id > 0 ) {
 			$added[ 'image_' . $featured_id ] = true;
 			if ( $include_main_media ) {
-				$image_item = $this->build_image_item( $featured_id, ! $primary_stage_rendered );
-				if ( ! empty( $image_item ) ) {
-					$items[]                = $image_item;
-					$primary_stage_rendered = true;
-				}
+				$refs[] = [
+					'kind' => 'image',
+					'id'   => $featured_id,
+				];
 			}
 		}
 
@@ -1245,28 +1283,185 @@ class Frontend {
 				if ( ! empty( $added[ 'image_' . $attachment_id ] ) ) {
 					continue;
 				}
-				$image_item = $this->build_image_item( $attachment_id, ! $primary_stage_rendered );
-				if ( ! empty( $image_item ) ) {
-					$items[]                            = $image_item;
-					$added[ 'image_' . $attachment_id ] = true;
-					$primary_stage_rendered             = true;
-				}
+				$added[ 'image_' . $attachment_id ] = true;
+				$refs[]                             = [
+					'kind' => 'image',
+					'id'   => (int) $attachment_id,
+				];
 			}
 		}
 
 		foreach ( $this->meta->get_product_gallery_video_ids( $product_id ) as $video_id ) {
-			if ( ! empty( $added[ 'video_' . $video_id ] ) ) {
+			$video_id = (int) $video_id;
+			if ( $video_id < 1 || ! empty( $added[ 'video_' . $video_id ] ) ) {
 				continue;
 			}
-			$video_item = $this->build_video_item( $video_id, $video_fit, ! $primary_stage_rendered );
-			if ( ! empty( $video_item ) ) {
-				$items[]                       = $video_item;
-				$added[ 'video_' . $video_id ] = true;
-				$primary_stage_rendered        = true;
+			$added[ 'video_' . $video_id ] = true;
+			$refs[]                        = [
+				'kind' => 'video',
+				'id'   => $video_id,
+			];
+		}
+
+		return $refs;
+	}
+
+	private function build_items_from_refs( array $refs, string $video_fit ): array {
+		$items                  = [];
+		$primary_stage_rendered = false;
+
+		foreach ( $refs as $ref ) {
+			$item = 'video' === $ref['kind']
+				? $this->build_video_item( $ref['id'], $video_fit, ! $primary_stage_rendered )
+				: $this->build_image_item( $ref['id'], ! $primary_stage_rendered );
+
+			if ( empty( $item ) ) {
+				continue;
+			}
+
+			$items[]                = $item;
+			$primary_stage_rendered = true;
+		}
+
+		return array_values( $items );
+	}
+
+	private function build_media_items( int $product_id, int $variation_id, string $video_fit, bool $include_main_media = true ): array {
+		$items = $this->build_items_from_refs(
+			$this->collect_media_ids( $product_id, $variation_id, $include_main_media ),
+			$video_fit
+		);
+
+		// Если у вариации ничего не отрисовалось (например, вложения удалены),
+		// показываем медиа самого товара — как это делала прежняя реализация.
+		if ( empty( $items ) && $variation_id > 0 ) {
+			$items = $this->build_items_from_refs(
+				$this->collect_media_ids( $product_id, 0, $include_main_media ),
+				$video_fit
+			);
+		}
+
+		return $items;
+	}
+
+	// -------------------------------------------------------------------------
+	// Lightbox (модальное окно с перелистыванием и зумом)
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Данные всех медиа товара/вариации для модального окна.
+	 *
+	 * В модалку всегда попадает полный набор, включая основное изображение,
+	 * даже если конкретный шорткод его на странице не показывает.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function build_lightbox_items( int $product_id, int $variation_id, string $video_fit = 'contain' ): array {
+		// На странице обычно несколько шорткодов сразу ([relod_main_image] +
+		// [relod_product_media_gallery]), а набор для модалки у них общий.
+		static $cache = [];
+
+		$cache_key = $product_id . ':' . $variation_id . ':' . $video_fit;
+		if ( isset( $cache[ $cache_key ] ) ) {
+			return $cache[ $cache_key ];
+		}
+
+		$items = $this->build_lightbox_from_refs( $this->collect_media_ids( $product_id, $variation_id, true ), $video_fit );
+
+		if ( empty( $items ) && $variation_id > 0 ) {
+			$items = $this->build_lightbox_from_refs( $this->collect_media_ids( $product_id, 0, true ), $video_fit );
+		}
+
+		$cache[ $cache_key ] = $items;
+
+		return $items;
+	}
+
+	private function build_lightbox_from_refs( array $refs, string $video_fit ): array {
+		$items = [];
+
+		foreach ( $refs as $ref ) {
+			$item = 'video' === $ref['kind']
+				? $this->build_lightbox_video( $ref['id'] )
+				: $this->build_lightbox_image( $ref['id'] );
+
+			if ( ! empty( $item ) ) {
+				$item['video_fit'] = $video_fit;
+				$items[]           = $item;
 			}
 		}
 
-		return array_values( array_filter( $items ) );
+		return $items;
+	}
+
+	private function build_lightbox_image( int $attachment_id ): array {
+		$full = wp_get_attachment_image_src( $attachment_id, 'full' );
+		if ( empty( $full[0] ) ) {
+			return [];
+		}
+
+		$title = trim( (string) get_the_title( $attachment_id ) );
+
+		return [
+			'key'    => 'image_' . $attachment_id,
+			'kind'   => 'image',
+			'id'     => $attachment_id,
+			'src'    => (string) $full[0],
+			'srcset' => (string) wp_get_attachment_image_srcset( $attachment_id, 'full' ),
+			'sizes'  => '100vw',
+			'width'  => ! empty( $full[1] ) ? absint( $full[1] ) : 0,
+			'height' => ! empty( $full[2] ) ? absint( $full[2] ) : 0,
+			'alt'    => $this->get_attachment_alt_text( $attachment_id ),
+			'title'  => '' !== $title ? $title : __( 'Изображение товара', 'relod-wc-variation-media-swatches' ),
+			'thumb'  => (string) ( wp_get_attachment_image_url( $attachment_id, 'woocommerce_thumbnail' ) ?: $full[0] ),
+		];
+	}
+
+	private function build_lightbox_video( int $attachment_id ): array {
+		$attachment_id = $this->meta->sanitize_video_id( $attachment_id );
+		if ( $attachment_id < 1 ) {
+			return [];
+		}
+
+		$src = (string) wp_get_attachment_url( $attachment_id );
+		if ( '' === $src ) {
+			return [];
+		}
+
+		$title = trim( (string) get_the_title( $attachment_id ) );
+		if ( '' === $title ) {
+			$title = __( 'Видео товара', 'relod-wc-variation-media-swatches' );
+		}
+
+		$poster = $this->get_video_poster_url( $attachment_id, 'full' );
+
+		return [
+			'key'    => 'video_' . $attachment_id,
+			'kind'   => 'video',
+			'id'     => $attachment_id,
+			'src'    => $src,
+			'mime'   => (string) get_post_mime_type( $attachment_id ),
+			'poster' => $poster,
+			'title'  => $title,
+			'alt'    => $title,
+			'thumb'  => (string) ( $this->get_video_poster_url( $attachment_id, 'woocommerce_thumbnail' ) ?: $poster ),
+		];
+	}
+
+	/**
+	 * JSON-контейнер с данными модального окна внутри блока галереи.
+	 */
+	private function render_lightbox_data( array $items ): string {
+		if ( empty( $items ) ) {
+			return '';
+		}
+
+		$json = wp_json_encode( $items, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
+		if ( ! is_string( $json ) ) {
+			return '';
+		}
+
+		return '<script type="application/json" class="relod-wcvms-lightbox-data">' . $json . '</script>';
 	}
 
 	private function build_image_item( int $attachment_id, bool $is_primary_stage = false ): array {
@@ -1309,6 +1504,7 @@ class Frontend {
 			'loading'                => $is_primary_stage ? 'eager' : 'lazy',
 			'decoding'               => $is_primary_stage ? 'sync' : 'async',
 			'data-relod-popup-image' => '1',
+			'data-relod-media-key'   => 'image_' . $attachment_id,
 		];
 
 		if ( $is_primary_stage ) {
@@ -1374,7 +1570,7 @@ class Frontend {
 			}
 		}
 
-		$stage_html = '<div class="relod-wcvms-stage-video' . $fit_class . '">' . $soft_background_html . '<video playsinline loop preload="' . esc_attr( $preload ) . '" class="relod-wcvms-video-tag" muted disablepictureinpicture controlslist="nodownload noplaybackrate noremoteplayback"' . $poster_attr . '><source src="' . esc_url( $src ) . '" type="' . esc_attr( $mime ) . '"></video></div>';
+		$stage_html = '<div class="relod-wcvms-stage-video' . $fit_class . '" data-relod-media-key="video_' . (int) $attachment_id . '">' . $soft_background_html . '<video playsinline loop preload="' . esc_attr( $preload ) . '" class="relod-wcvms-video-tag" muted disablepictureinpicture controlslist="nodownload noplaybackrate noremoteplayback"' . $poster_attr . '><source src="' . esc_url( $src ) . '" type="' . esc_attr( $mime ) . '"></video></div>';
 
 		return [
 			'kind'       => 'video',

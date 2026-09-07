@@ -660,81 +660,501 @@
 
 
 /* ============================================================
-   Fullscreen popup for gallery images
+   Лупа на изображениях товара (подсказка «открыть во весь экран»)
+   ============================================================ */
+
+.relod-wcvms-gallery .relod-wcvms-stage,
+.relod-wcvms-main-image-wrap,
+.relod-wcvms-slider-wrap {
+  position: relative;
+}
+
+.relod-wcvms-zoom-hint {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 25;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .92);
+  color: #14110d;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-in;
+  opacity: 0;
+  transform: translateY(6px) scale(.92);
+  transition: opacity .18s ease, transform .18s ease, background .18s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.relod-wcvms-zoom-hint svg {
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.relod-wcvms-gallery .relod-wcvms-stage:hover .relod-wcvms-zoom-hint,
+.relod-wcvms-main-image-wrap:hover .relod-wcvms-zoom-hint,
+.relod-wcvms-slider-wrap:hover .relod-wcvms-zoom-hint,
+.relod-wcvms-zoom-hint:focus-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.relod-wcvms-zoom-hint:hover {
+  background: #fff;
+}
+
+/* Активен слайд с видео — лупа не нужна (класс ставит JS) */
+.relod-wcvms-video-active .relod-wcvms-zoom-hint {
+  display: none;
+}
+
+.relod-wcvms-main-image-wrap {
+  cursor: zoom-in;
+}
+
+/* На тач-устройствах наведения нет — показываем подсказку сразу */
+@media (hover: none) {
+  .relod-wcvms-zoom-hint {
+    opacity: .85;
+    transform: none;
+    width: 38px;
+    height: 38px;
+  }
+
+  .relod-wcvms-zoom-hint svg {
+    width: 19px;
+    height: 19px;
+  }
+}
+
+
+/* ============================================================
+   Модальная галерея: перелистывание, миниатюры, зум
    ============================================================ */
 
 html.relod-wcvms-popup-open,
 html.relod-wcvms-popup-open body {
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
-.relod-wcvms-lightbox {
+.relod-wcvms-lb {
+  --relod-lb-bg: #f2efe9;
+  --relod-lb-ink: #14110d;
+  --relod-lb-pad: 24px;
+  --relod-lb-thumb-h: 72px;
+  --relod-lb-nav: 52px;
+
   position: fixed;
   inset: 0;
   z-index: 999999;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 32px;
-  background: rgba(0, 0, 0, .82);
+  flex-direction: column;
+  background: var(--relod-lb-bg);
+  color: var(--relod-lb-ink);
   opacity: 0;
-  transition: opacity .16s ease;
-  cursor: zoom-out;
+  transition: opacity .2s ease;
+  overscroll-behavior: contain;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
-.relod-wcvms-lightbox.is-visible {
+.relod-wcvms-lb.is-visible {
   opacity: 1;
 }
 
-.relod-wcvms-lightbox__inner {
-  width: min(96vw, 1400px);
-  height: min(92vh, 1000px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.relod-wcvms-lb:focus {
+  outline: none;
+}
+
+.relod-wcvms-lb *,
+.relod-wcvms-lb *::before,
+.relod-wcvms-lb *::after {
+  box-sizing: border-box;
+}
+
+/* ── Счётчик ── */
+.relod-wcvms-lb__counter {
+  position: absolute;
+  top: var(--relod-lb-pad);
+  left: var(--relod-lb-pad);
+  z-index: 12;
+  font-size: 14px;
+  line-height: 1;
+  letter-spacing: .02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--relod-lb-ink);
+  opacity: .75;
   pointer-events: none;
 }
 
-.relod-wcvms-lightbox__img {
+.relod-wcvms-lb.is-single .relod-wcvms-lb__counter {
+  display: none;
+}
+
+/* ── Кнопки в правом верхнем углу ── */
+.relod-wcvms-lb__tools {
+  position: absolute;
+  top: calc(var(--relod-lb-pad) - 10px);
+  right: calc(var(--relod-lb-pad) - 10px);
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.relod-wcvms-lb__btn {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--relod-lb-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background .18s ease, opacity .18s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.relod-wcvms-lb__btn:hover,
+.relod-wcvms-lb__btn:focus-visible {
+  background: rgba(0, 0, 0, .07);
+}
+
+.relod-wcvms-lb__btn svg {
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.relod-wcvms-lb__btn--zoom svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Иконка кнопки следует за состоянием: лупа «+» → лупа «−» */
+.relod-wcvms-lb__btn--zoom .relod-wcvms-icon--out,
+.relod-wcvms-lb.is-zoomed .relod-wcvms-lb__btn--zoom .relod-wcvms-icon--in {
+  display: none;
+}
+
+.relod-wcvms-lb.is-zoomed .relod-wcvms-lb__btn--zoom .relod-wcvms-icon--out {
+  display: block;
+}
+
+/* Зум-кнопка не нужна на видео-слайде */
+.relod-wcvms-lb.is-video .relod-wcvms-lb__btn--zoom {
+  display: none;
+}
+
+/* ── Стрелки ── */
+.relod-wcvms-lb__nav {
+  position: absolute;
+  top: 50%;
+  z-index: 11;
+  width: var(--relod-lb-nav);
+  height: var(--relod-lb-nav);
+  margin-top: calc(var(--relod-lb-thumb-h) / -2);
+  transform: translateY(-50%);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--relod-lb-ink);
+  box-shadow: 0 2px 14px rgba(0, 0, 0, .12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background .18s ease, opacity .18s ease, box-shadow .18s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.relod-wcvms-lb:not(.has-thumbs) .relod-wcvms-lb__nav {
+  margin-top: 0;
+}
+
+.relod-wcvms-lb__nav svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.relod-wcvms-lb__nav--prev { left: var(--relod-lb-pad); }
+.relod-wcvms-lb__nav--next { right: var(--relod-lb-pad); }
+
+.relod-wcvms-lb__nav:hover {
+  box-shadow: 0 4px 18px rgba(0, 0, 0, .18);
+}
+
+.relod-wcvms-lb__nav:disabled {
+  opacity: .3;
+  cursor: default;
+  pointer-events: none;
+}
+
+.relod-wcvms-lb.is-single .relod-wcvms-lb__nav,
+.relod-wcvms-lb.is-zoomed .relod-wcvms-lb__nav {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── Сцена ── */
+.relod-wcvms-lb__stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.relod-wcvms-lb__track {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+}
+
+/* Отступы по вертикали симметричны: центр картинки совпадает с центром
+   области просмотра, поэтому зум «в точку» не уводит изображение. */
+.relod-wcvms-lb__slide {
+  position: relative;
+  flex: 0 0 100%;
+  width: 100%;
+  height: 100%;
+  padding: 10px calc(var(--relod-lb-nav) + var(--relod-lb-pad) * 1.4);
+}
+
+.relod-wcvms-lb__figure {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.relod-wcvms-lb__img {
   max-width: 100%;
   max-height: 100%;
   width: auto;
   height: auto;
-  object-fit: contain;
   display: block;
-  box-shadow: 0 18px 60px rgba(0, 0, 0, .35);
+  object-fit: contain;
+  cursor: zoom-in;
+  transform-origin: center center;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
-.relod-wcvms-lightbox__close {
-  position: absolute;
-  top: 18px;
-  right: 22px;
-  z-index: 2;
-  width: 42px;
-  height: 42px;
-  border: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, .92);
-  color: #111;
-  font-size: 30px;
-  line-height: 1;
-  cursor: pointer;
+.relod-wcvms-lb.is-zoomed .relod-wcvms-lb__img {
+  cursor: grab;
+}
+
+.relod-wcvms-lb.is-zoomed.is-grabbing .relod-wcvms-lb__img {
+  cursor: grabbing;
+}
+
+.relod-wcvms-lb__video {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  display: block;
+  background: #000;
+}
+
+/* ── Лента миниатюр ── */
+.relod-wcvms-lb__thumbs {
+  display: none;
+  flex: 0 0 auto;
+  height: var(--relod-lb-thumb-h);
+  gap: 6px;
+  padding: 0 var(--relod-lb-pad) 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+.relod-wcvms-lb__thumbs::-webkit-scrollbar {
+  display: none;
+}
+
+.relod-wcvms-lb.has-thumbs .relod-wcvms-lb__thumbs {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
 }
 
-.relod-wcvms-lightbox__close:hover {
-  background: #fff;
+/* Центрируем ленту, пока она помещается, но не ломаем прокрутку,
+   когда миниатюр много (safe center поддержан не везде). */
+.relod-wcvms-lb__thumbs::before,
+.relod-wcvms-lb__thumbs::after {
+  content: '';
+  flex: 0 0 auto;
+  margin: auto;
 }
 
-@media (max-width: 720px) {
-  .relod-wcvms-lightbox {
-    padding: 14px;
+.relod-wcvms-lb__thumb {
+  position: relative;
+  flex: 0 0 auto;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  opacity: .55;
+  transition: opacity .18s ease, box-shadow .18s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.relod-wcvms-lb__thumb img {
+  height: 100%;
+  width: auto;
+  max-width: 96px;
+  display: block;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.relod-wcvms-lb__thumb:hover,
+.relod-wcvms-lb__thumb:focus-visible {
+  opacity: .85;
+}
+
+.relod-wcvms-lb__thumb.is-active {
+  opacity: 1;
+  box-shadow: inset 0 0 0 2px var(--relod-lb-ink);
+}
+
+.relod-wcvms-lb__thumb .relod-wcvms-play-icon {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+}
+
+/* ── Полноэкранный / «театральный» режим ── */
+.relod-wcvms-lb.is-theatre .relod-wcvms-lb__thumbs,
+.relod-wcvms-lb.is-theatre .relod-wcvms-lb__counter {
+  display: none;
+}
+
+.relod-wcvms-lb:fullscreen {
+  background: var(--relod-lb-bg);
+}
+
+/* ── Ноутбуки ── */
+@media (max-width: 1280px) {
+  .relod-wcvms-lb {
+    --relod-lb-pad: 20px;
+    --relod-lb-thumb-h: 64px;
+    --relod-lb-nav: 46px;
   }
 
-  .relod-wcvms-lightbox__close {
-    top: 10px;
-    right: 10px;
+  .relod-wcvms-lb__thumb img {
+    max-width: 84px;
+  }
+}
+
+/* ── Планшеты ── */
+@media (max-width: 1024px) {
+  .relod-wcvms-lb {
+    --relod-lb-pad: 16px;
+    --relod-lb-thumb-h: 58px;
+    --relod-lb-nav: 42px;
+  }
+
+  .relod-wcvms-lb__slide {
+    padding: 10px calc(var(--relod-lb-nav) + var(--relod-lb-pad));
+  }
+
+  .relod-wcvms-lb__thumb img {
+    max-width: 72px;
+  }
+}
+
+/* ── Мобильные ── */
+@media (max-width: 767px) {
+  .relod-wcvms-lb {
+    --relod-lb-pad: 12px;
+    --relod-lb-thumb-h: 52px;
+    --relod-lb-nav: 38px;
+  }
+
+  .relod-wcvms-lb__counter {
+    font-size: 13px;
+  }
+
+  .relod-wcvms-lb__btn {
+    width: 38px;
+    height: 38px;
+  }
+
+  /* Листаем свайпом — стрелки только мешают на узком экране */
+  .relod-wcvms-lb__nav {
+    display: none;
+  }
+
+  .relod-wcvms-lb__slide {
+    padding: 8px var(--relod-lb-pad);
+  }
+
+  .relod-wcvms-lb__thumb img {
+    max-width: 60px;
+  }
+}
+
+/* ── Мобильные в альбомной ориентации: экономим высоту ── */
+@media (max-height: 480px) and (orientation: landscape) {
+  .relod-wcvms-lb {
+    --relod-lb-thumb-h: 44px;
+  }
+
+  .relod-wcvms-lb.has-thumbs .relod-wcvms-lb__thumbs {
+    display: none;
+  }
+
+  .relod-wcvms-lb__nav {
+    margin-top: 0;
+  }
+
+  .relod-wcvms-lb__slide {
+    padding: 8px calc(var(--relod-lb-nav) + var(--relod-lb-pad));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .relod-wcvms-lb,
+  .relod-wcvms-lb__track,
+  .relod-wcvms-lb__img,
+  .relod-wcvms-zoom-hint {
+    transition: none !important;
+  }
+
+  .relod-wcvms-lb__thumbs {
+    scroll-behavior: auto;
   }
 }
