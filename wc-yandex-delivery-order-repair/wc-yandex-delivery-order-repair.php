@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Яндекс доставка — диагностика и восстановление заказов
  * Description: Дополнение к плагину «Яндекс доставка для Woocommerce» (Woodev). Показывает реальную причину, по которой заказ не экспортируется, восстанавливает служебные данные (статус и ПВЗ) у заказов, которые их не получили при оформлении, и страхует оформление заказа, чтобы такие «потерянные» заказы больше не появлялись.
- * Version: 1.0.0
+ * Version: 1.1.0
  * Requires PHP: 7.4
  * Requires Plugins: woocommerce
  */
@@ -25,15 +25,21 @@ defined( 'ABSPATH' ) || exit;
  *  - не показывает кнопку «Экспортировать» (get_allowed_actions() требует NEW или EXPORT_INVALID);
  *  - при нажатии «Выбрать и экспортировать» отдаёт пустое окно без вариантов доставки,
  *    потому что вместе со статусом не сохранился и выбранный покупателем ПВЗ
- *    (_yandex_delivery_destination_station_id), а Яндекс без него не выдаёт офферы.
- *    Ошибку при этом не видно: assets/js/admin/admin-order.js разбирает ответ как
- *    `if ( response.success ) { return response.data }` и молча игнорирует ошибку.
+ *    (_yandex_delivery_destination_station_id): Яндекс отвечает на такую заявку
+ *    ошибкой «Not found station by station_id», а assets/js/admin/admin-order.js
+ *    разбирает ответ как `if ( response.success ) { return response.data }`
+ *    и молча её проглатывает.
  */
 class WCYD_Order_Repair {
+
+	const VERSION = '1.1.0';
 
 	const META_STATUS  = '_yandex_delivery_state_status';
 	const META_STATION = '_yandex_delivery_destination_station_id';
 	const META_ADDRESS = '_yandex_delivery_destination_station_address';
+
+	/** Срок жизни кеша списка ПВЗ города. */
+	const POINTS_CACHE_TTL = 6 * HOUR_IN_SECONDS;
 
 	/** @var WCYD_Order_Repair|null */
 	private static $instance = null;
@@ -62,11 +68,14 @@ class WCYD_Order_Repair {
 		add_action( 'woocommerce_store_api_checkout_order_processed', [ $this, 'backfill_order' ], 99 );
 
 		if ( is_admin() ) {
+
 			add_action( 'add_meta_boxes', [ $this, 'add_meta_box' ], 20, 2 );
-			add_action( 'admin_post_wcyd_repair_order', [ $this, 'handle_repair' ] );
-			add_action( 'wp_ajax_wcyd_diagnose_order', [ $this, 'ajax_diagnose' ] );
-			add_action( 'admin_notices', [ $this, 'admin_notices' ] );
+			add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_assets' ] );
 			add_action( 'admin_print_footer_scripts', [ $this, 'print_offers_error_script' ], 99 );
+
+			add_action( 'wp_ajax_wcyd_load_points', [ $this, 'ajax_load_points' ] );
+			add_action( 'wp_ajax_wcyd_save_repair', [ $this, 'ajax_save_repair' ] );
+			add_action( 'wp_ajax_wcyd_diagnose_order', [ $this, 'ajax_diagnose' ] );
 		}
 	}
 
@@ -222,6 +231,49 @@ class WCYD_Order_Repair {
 		return $missing;
 	}
 
+	/**
+	 * Ищет пункт (ПВЗ или пункт отгрузки) в базе Яндекса по его идентификатору.
+	 *
+	 * @return object|null
+	 */
+	private function find_station( string $station_id ) {
+
+		if ( '' === $station_id || ! function_exists( 'wc_yandex_delivery_get_points_list' ) ) {
+			return null;
+		}
+
+		foreach ( wc_yandex_delivery_get_points_list( [ 'pickup_point_ids' => [ $station_id ] ] ) as $point ) {
+			if ( ! empty( $point->id ) && (string) $point->id === $station_id ) {
+				return $point;
+			}
+		}
+
+		return null;
+	}
+
+	private function get_station_address( $point ): string {
+
+		if ( ! is_object( $point ) ) {
+			return '';
+		}
+
+		return (string) ( $point->address->full_address ?? $point->name ?? '' );
+	}
+
+	/**
+	 * Описание пункта для отчёта диагностики.
+	 */
+	private function describe_station( string $station_id ): string {
+
+		$point = $this->find_station( $station_id );
+
+		if ( $point ) {
+			return sprintf( '%s — %s (найден в Яндексе)', $station_id, $this->get_station_address( $point ) ?: 'без адреса' );
+		}
+
+		return sprintf( '%s — НЕ НАЙДЕН в базе Яндекса', $station_id );
+	}
+
 	/* ---------------------------------------------------------------------
 	 * Страховка при оформлении заказа
 	 * ------------------------------------------------------------------ */
@@ -325,8 +377,39 @@ class WCYD_Order_Repair {
 	 * Метабокс восстановления на странице заказа
 	 * ------------------------------------------------------------------ */
 
+	private function get_order_screen_ids(): array {
+
+		$ids = [ 'shop_order' ];
+
+		if ( function_exists( 'wc_get_page_screen_id' ) ) {
+			$ids[] = wc_get_page_screen_id( 'shop-order' );
+		}
+
+		return array_unique( array_filter( $ids ) );
+	}
+
 	/**
-	 * @param string             $post_type
+	 * Селект с поиском берём из самого Woocommerce (selectWoo), ничего своего не грузим.
+	 */
+	public function enqueue_assets( $hook_suffix ) {
+
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+
+		if ( ! $screen || ! in_array( $screen->id, $this->get_order_screen_ids(), true ) ) {
+			return;
+		}
+
+		if ( wp_script_is( 'wc-enhanced-select', 'registered' ) ) {
+			wp_enqueue_script( 'wc-enhanced-select' );
+		}
+
+		if ( wp_style_is( 'woocommerce_admin_styles', 'registered' ) ) {
+			wp_enqueue_style( 'woocommerce_admin_styles' );
+		}
+	}
+
+	/**
+	 * @param string                $post_type
 	 * @param WP_Post|WC_Order|null $post
 	 */
 	public function add_meta_box( $post_type, $post = null ) {
@@ -355,17 +438,6 @@ class WCYD_Order_Repair {
 		);
 	}
 
-	private function get_order_screen_ids(): array {
-
-		$ids = [ 'shop_order' ];
-
-		if ( function_exists( 'wc_get_page_screen_id' ) ) {
-			$ids[] = wc_get_page_screen_id( 'shop-order' );
-		}
-
-		return array_unique( array_filter( $ids ) );
-	}
-
 	/**
 	 * @param WP_Post|WC_Order|null $post
 	 *
@@ -392,6 +464,12 @@ class WCYD_Order_Repair {
 		return $order instanceof WC_Order ? $order : null;
 	}
 
+	/**
+	 * Важно: внутри метабокса нельзя использовать <form> — страница заказа сама
+	 * является одной большой формой, а вложенные формы браузер выбрасывает,
+	 * и поля уходят в форму заказа (из-за чего Woocommerce уводил на список записей).
+	 * Поэтому здесь только поля и кнопки type="button", а сохранение идёт через AJAX.
+	 */
 	public function render_meta_box( $post ) {
 
 		$order = $this->get_yandex_order( $this->resolve_order_from_screen( $post ) );
@@ -400,26 +478,34 @@ class WCYD_Order_Repair {
 			return;
 		}
 
-		$missing     = $this->get_missing_data( $order );
-		$need_station = isset( $missing['station'] );
-		$points      = $need_station ? $this->get_pickup_points( $order ) : [];
+		$missing      = $this->get_missing_data( $order );
+		$is_pickup    = $this->is_pickup_order( $order );
+		$station_id   = (string) $order->get_destination_station_id();
+		$station_text = (string) $order->get_destination_station_address();
 		?>
 		<style>
 			.wcyd-repair p.description { margin: 0 0 12px; }
-			.wcyd-repair ul { margin: 0 0 12px 18px; list-style: disc; }
-			.wcyd-repair .wcyd-field { margin-bottom: 12px; }
-			.wcyd-repair select, .wcyd-repair input[type="text"] { width: 100%; max-width: 640px; }
+			.wcyd-repair ul.wcyd-missing { margin: 0 0 12px 18px; list-style: disc; }
+			.wcyd-repair .wcyd-field { margin-bottom: 16px; }
+			.wcyd-repair .wcyd-field > label { display: block; font-weight: 600; margin-bottom: 4px; }
+			.wcyd-repair select.wcyd-points, .wcyd-repair input.wcyd-manual { width: 100%; max-width: 680px; }
+			.wcyd-repair .select2-container { max-width: 680px; }
 			.wcyd-repair .wcyd-result { margin-top: 12px; padding: 10px 12px; border-left: 4px solid #72aee6; background: #f6f7f7; white-space: pre-wrap; word-break: break-word; display: none; }
 			.wcyd-repair .wcyd-result.is-error { border-left-color: #d63638; }
+			.wcyd-repair .wcyd-result.is-success { border-left-color: #00a32a; }
+			.wcyd-repair .spinner.is-active { float: none; margin: 0 0 0 6px; vertical-align: middle; }
 		</style>
-		<div class="wcyd-repair">
+
+		<div class="wcyd-repair"
+			 data-order_id="<?php echo esc_attr( $order->get_id() ); ?>"
+			 data-nonce="<?php echo esc_attr( wp_create_nonce( 'wcyd-repair-' . $order->get_id() ) ); ?>">
 
 			<p class="description">
 				У этого заказа выбран метод доставки «Яндекс доставка», но плагин не получил служебные данные при оформлении.
 				Из-за этого заказ не попал в раздел «Заказы Я.Доставки» и не экспортируется. Не хватает:
 			</p>
 
-			<ul>
+			<ul class="wcyd-missing">
 				<?php foreach ( $missing as $text ) : ?>
 					<li><?php echo esc_html( $text ); ?></li>
 				<?php endforeach; ?>
@@ -433,90 +519,303 @@ class WCYD_Order_Repair {
 				</p>
 			<?php endif; ?>
 
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+			<?php if ( $is_pickup ) : ?>
 
-				<input type="hidden" name="action" value="wcyd_repair_order" />
-				<input type="hidden" name="order_id" value="<?php echo esc_attr( $order->get_id() ); ?>" />
-				<?php wp_nonce_field( 'wcyd-repair-order-' . $order->get_id() ); ?>
+				<div class="wcyd-field">
+					<label for="wcyd-points-<?php echo esc_attr( $order->get_id() ); ?>">Пункт выдачи (ПВЗ), который выбрал покупатель</label>
 
-				<?php if ( $need_station ) : ?>
-
-					<div class="wcyd-field">
-						<label for="wcyd-pickup-point"><strong>Пункт выдачи (ПВЗ), который выбрал покупатель</strong></label>
-						<?php if ( $points ) : ?>
-							<select name="pickup_point_id" id="wcyd-pickup-point">
-								<option value="">— выберите пункт выдачи —</option>
-								<?php foreach ( $points as $id => $address ) : ?>
-									<option value="<?php echo esc_attr( $id ); ?>"><?php echo esc_html( $address ); ?></option>
-								<?php endforeach; ?>
-							</select>
+					<select class="wcyd-points" id="wcyd-points-<?php echo esc_attr( $order->get_id() ); ?>">
+						<?php if ( $station_id ) : ?>
+							<option value="<?php echo esc_attr( $station_id ); ?>" selected><?php echo esc_html( $station_text ?: $station_id ); ?></option>
 						<?php else : ?>
-							<p class="description">
-								Список ПВЗ получить не удалось (не определён город получателя или API Яндекса недоступно).
-								Укажите идентификатор пункта выдачи вручную — его можно посмотреть в личном кабинете Яндекс Доставки.
-							</p>
+							<option value="">— список ещё не загружен —</option>
 						<?php endif; ?>
-					</div>
+					</select>
 
-					<div class="wcyd-field">
-						<label for="wcyd-pickup-point-manual">Либо укажите ID пункта выдачи вручную</label>
-						<input type="text" name="pickup_point_id_manual" id="wcyd-pickup-point-manual" placeholder="например, 9d4d1d2e-...-b1f0" />
-					</div>
+					<p class="description" style="margin-top:6px;">
+						Нажмите «Загрузить список ПВЗ», чтобы получить пункты выдачи города получателя из API Яндекса.
+						В открывшемся списке работает поиск — начните вводить улицу или район.
+					</p>
 
-				<?php endif; ?>
+					<p style="margin:8px 0 0;">
+						<button type="button" class="button wcyd-load-points">Загрузить список ПВЗ</button>
+						<span class="spinner"></span>
+					</p>
+				</div>
 
-				<p class="submit" style="margin: 0; padding: 0;">
-					<button type="submit" class="button button-primary">Восстановить данные заказа</button>
-					<button type="button" class="button wcyd-diagnose" data-order_id="<?php echo esc_attr( $order->get_id() ); ?>" data-nonce="<?php echo esc_attr( wp_create_nonce( 'wcyd-diagnose-' . $order->get_id() ) ); ?>">Проверить экспорт и показать ошибку</button>
-				</p>
-			</form>
+				<div class="wcyd-field">
+					<label for="wcyd-manual-<?php echo esc_attr( $order->get_id() ); ?>">Либо укажите ID пункта выдачи вручную</label>
+					<input type="text" class="wcyd-manual" id="wcyd-manual-<?php echo esc_attr( $order->get_id() ); ?>" placeholder="например, 278bfc4d-f56c-401a-b6b7-d6d6e784bf3e" autocomplete="off" />
+					<p class="description" style="margin-top:6px;">
+						ID нужен, только если список выше не загрузился. Взять его можно в личном кабинете Яндекс Доставки:
+						<a href="https://delivery.yandex.ru" target="_blank" rel="noopener">delivery.yandex.ru</a> → раздел с пунктами выдачи,
+						идентификатор пункта имеет вид <code>278bfc4d-f56c-401a-b6b7-d6d6e784bf3e</code>.
+						Указанный ID проверяется в базе Яндекса перед сохранением.
+					</p>
+				</div>
+
+			<?php endif; ?>
+
+			<p style="margin: 0;">
+				<button type="button" class="button button-primary wcyd-save">Восстановить данные заказа</button>
+				<button type="button" class="button wcyd-diagnose">Проверить экспорт и показать ошибку</button>
+				<span class="spinner"></span>
+			</p>
 
 			<div class="wcyd-result"></div>
 		</div>
 
 		<script>
 			( function ( $ ) {
-				$( document ).on( 'click', '.wcyd-repair .wcyd-diagnose', function ( event ) {
 
-					event.preventDefault();
+				$( function () {
 
-					var $button = $( this ),
-						$result = $button.closest( '.wcyd-repair' ).find( '.wcyd-result' );
+					$( '.wcyd-repair' ).each( function () {
 
-					$button.prop( 'disabled', true );
-					$result.removeClass( 'is-error' ).text( 'Запрашиваем варианты доставки у Яндекса…' ).show();
+						var $box     = $( this ),
+							$result  = $box.find( '.wcyd-result' ),
+							$points  = $box.find( 'select.wcyd-points' ),
+							$manual  = $box.find( 'input.wcyd-manual' ),
+							orderId  = $box.data( 'order_id' ),
+							nonce    = $box.data( 'nonce' );
 
-					$.post( ajaxurl, {
-						action: 'wcyd_diagnose_order',
-						order_id: $button.data( 'order_id' ),
-						security: $button.data( 'nonce' )
-					} ).done( function ( response ) {
-						var data = ( response && response.data ) ? response.data : response;
-						$result.toggleClass( 'is-error', ! ( response && response.success ) ).text( typeof data === 'string' ? data : JSON.stringify( data ) );
-					} ).fail( function ( xhr ) {
-						$result.addClass( 'is-error' ).text( 'Сервер вернул ошибку ' + xhr.status + '. Ответ: ' + String( xhr.responseText ).substring( 0, 1000 ) );
-					} ).always( function () {
-						$button.prop( 'disabled', false );
+						function busy( $button, state ) {
+							$button.prop( 'disabled', state );
+							$button.siblings( '.spinner' ).toggleClass( 'is-active', state );
+						}
+
+						function show( message, type ) {
+							$result
+								.removeClass( 'is-error is-success' )
+								.addClass( type ? 'is-' + type : '' )
+								.text( typeof message === 'string' ? message : JSON.stringify( message ) )
+								.show();
+						}
+
+						function payload( response ) {
+							return ( response && typeof response.data !== 'undefined' ) ? response.data : response;
+						}
+
+						function messageOf( data, fallback ) {
+
+							if ( ! data ) {
+								return fallback;
+							}
+
+							return ( typeof data === 'object' && data.message ) ? data.message : data;
+						}
+
+						function post( action, data ) {
+							return $.post( ajaxurl, $.extend( {
+								action: action,
+								order_id: orderId,
+								security: nonce
+							}, data || {} ) );
+						}
+
+						function fail( xhr ) {
+							show( 'Сервер вернул ошибку ' + xhr.status + '.\n\n' + String( xhr.responseText ).substring( 0, 1000 ), 'error' );
+						}
+
+						function enhance( $select ) {
+
+							// Повторная загрузка списка: сначала снимаем прежнюю обёртку.
+							if ( $select.data( 'select2' ) ) {
+								$select.select2( 'destroy' );
+							}
+
+							var options = {
+								placeholder: 'Начните вводить адрес пункта выдачи',
+								width: '100%',
+								allowClear: true
+							};
+
+							if ( $.fn.selectWoo ) {
+								$select.selectWoo( options );
+							} else if ( $.fn.select2 ) {
+								$select.select2( options );
+							}
+						}
+
+						// Загрузка списка ПВЗ города получателя.
+						$box.on( 'click', '.wcyd-load-points', function () {
+
+							var $button = $( this );
+
+							busy( $button, true );
+							show( 'Запрашиваем список пунктов выдачи у Яндекса…' );
+
+							post( 'wcyd_load_points' ).done( function ( response ) {
+
+								if ( ! response || ! response.success ) {
+									show( messageOf( payload( response ), 'Не удалось получить список ПВЗ.' ), 'error' );
+									return;
+								}
+
+								var current = $points.val();
+
+								$points.empty().append( $( '<option/>', { value: '', text: '' } ) );
+
+								$.each( response.data.points, function ( index, point ) {
+									$points.append( $( '<option/>', { value: point.id, text: point.text } ) );
+								} );
+
+								if ( current ) {
+									$points.val( current );
+								}
+
+								enhance( $points );
+
+								show( 'Загружено пунктов выдачи: ' + response.data.points.length + '. Выберите нужный в списке и нажмите «Восстановить данные заказа».', 'success' );
+
+							} ).fail( fail ).always( function () {
+								busy( $button, false );
+							} );
+						} );
+
+						// Сохранение.
+						function save( $button, force ) {
+
+							busy( $button, true );
+							show( 'Сохраняем…' );
+
+							return post( 'wcyd_save_repair', {
+								pickup_point_id: $points.length ? ( $points.val() || '' ) : '',
+								pickup_point_id_manual: $manual.length ? $.trim( $manual.val() ) : '',
+								force: force ? 1 : 0
+							} ).done( function ( response ) {
+
+								var data = payload( response );
+
+								if ( response && response.success ) {
+
+									show( messageOf( data, 'Сохранено.' ) + '\n\nОбновляем страницу…', 'success' );
+
+									window.setTimeout( function () {
+										window.location.reload();
+									}, 1200 );
+
+									return;
+								}
+
+								var message = messageOf( data, 'Не удалось сохранить данные.' );
+
+								show( message, 'error' );
+
+								if ( ! force && data && data.can_force && window.confirm( message + '\n\nСохранить ID без проверки?' ) ) {
+									save( $button, true );
+								}
+
+							} ).fail( fail ).always( function () {
+								busy( $button, false );
+							} );
+						}
+
+						$box.on( 'click', '.wcyd-save', function () {
+							save( $( this ), false );
+						} );
+
+						// Диагностика.
+						$box.on( 'click', '.wcyd-diagnose', function () {
+
+							var $button = $( this );
+
+							busy( $button, true );
+							show( 'Проверяем заявку и запрашиваем варианты доставки у Яндекса…' );
+
+							post( 'wcyd_diagnose_order' ).done( function ( response ) {
+
+								show( messageOf( payload( response ), 'Пустой ответ сервера.' ), ( response && response.success ) ? 'success' : 'error' );
+
+							} ).fail( fail ).always( function () {
+								busy( $button, false );
+							} );
+						} );
 					} );
 				} );
+
 			} )( jQuery );
 		</script>
 		<?php
 	}
 
-	/**
-	 * Список ПВЗ города получателя: id => адрес.
-	 */
-	private function get_pickup_points( WC_Order $order ): array {
+	/* ---------------------------------------------------------------------
+	 * AJAX
+	 * ------------------------------------------------------------------ */
 
-		if ( ! function_exists( 'wc_yandex_delivery_get_points_list' ) ) {
-			return [];
+	/**
+	 * Проверка прав и nonce, общая для всех запросов метабокса.
+	 *
+	 * @return WC_Yandex_Delivery_Order
+	 */
+	private function authorize_request(): WC_Yandex_Delivery_Order {
+
+		$order_id = isset( $_POST['order_id'] ) ? absint( $_POST['order_id'] ) : 0;
+
+		if ( ! current_user_can( 'edit_shop_orders' ) ) {
+			wp_send_json_error( 'У вас недостаточно прав на выполнение этой операции.' );
 		}
+
+		check_ajax_referer( 'wcyd-repair-' . $order_id, 'security' );
+
+		$order = $this->get_yandex_order( $order_id );
+
+		if ( ! $order ) {
+			wp_send_json_error( 'Заказ не найден.' );
+		}
+
+		return $order;
+	}
+
+	/**
+	 * Список ПВЗ города получателя для выпадающего списка с поиском.
+	 */
+	public function ajax_load_points() {
+
+		$order = $this->authorize_request();
 
 		$geo_id = $this->get_geo_id( $order );
 
 		if ( ! $geo_id ) {
+			wp_send_json_error( sprintf(
+				'Не удалось определить город получателя (geo_id) по адресу «%s». Укажите ID пункта выдачи вручную.',
+				$order->get_shipping_city() ?: $order->get_billing_city() ?: '—'
+			) );
+		}
+
+		$points = $this->get_pickup_points( $geo_id );
+
+		if ( ! $points ) {
+			wp_send_json_error( sprintf(
+				'Яндекс не вернул ни одного пункта выдачи для города с geo_id %d. Проверьте токен API в настройках интеграции или укажите ID пункта выдачи вручную.',
+				$geo_id
+			) );
+		}
+
+		$prepared = [];
+
+		foreach ( $points as $id => $address ) {
+			$prepared[] = [ 'id' => $id, 'text' => $address ];
+		}
+
+		wp_send_json_success( [ 'geo_id' => $geo_id, 'points' => $prepared ] );
+	}
+
+	/**
+	 * Список ПВЗ города: id => адрес. Кешируется, потому что для крупных городов
+	 * запрос тяжёлый (сам плагин Woodev на нём принудительно отключает кеш).
+	 */
+	private function get_pickup_points( int $geo_id ): array {
+
+		if ( ! $geo_id || ! function_exists( 'wc_yandex_delivery_get_points_list' ) ) {
 			return [];
+		}
+
+		$cache_key = 'wcyd_points_' . $geo_id;
+		$cached    = get_transient( $cache_key );
+
+		if ( is_array( $cached ) ) {
+			return $cached;
 		}
 
 		$points = [];
@@ -527,33 +826,24 @@ class WCYD_Order_Repair {
 				continue;
 			}
 
-			$points[ $point->id ] = $point->address->full_address ?? $point->name ?? $point->id;
+			$points[ (string) $point->id ] = $this->get_station_address( $point ) ?: (string) $point->id;
 		}
 
 		asort( $points );
 
+		if ( $points ) {
+			set_transient( $cache_key, $points, self::POINTS_CACHE_TTL );
+		}
+
 		return $points;
 	}
 
-	/* ---------------------------------------------------------------------
-	 * Обработка формы восстановления
-	 * ------------------------------------------------------------------ */
+	/**
+	 * Сохранение восстановленных данных.
+	 */
+	public function ajax_save_repair() {
 
-	public function handle_repair() {
-
-		$order_id = isset( $_POST['order_id'] ) ? absint( $_POST['order_id'] ) : 0;
-
-		if ( ! current_user_can( 'edit_shop_orders' ) ) {
-			wp_die( 'У вас недостаточно прав на выполнение этой операции.' );
-		}
-
-		check_admin_referer( 'wcyd-repair-order-' . $order_id );
-
-		$order = $this->get_yandex_order( $order_id );
-
-		if ( ! $order ) {
-			wp_die( 'Заказ не найден.' );
-		}
+		$order = $this->authorize_request();
 
 		$station_id = '';
 
@@ -565,21 +855,29 @@ class WCYD_Order_Repair {
 
 		$changes = [];
 
-		if ( $station_id ) {
+		if ( '' !== $station_id ) {
 
-			$address = '';
+			// Проверяем ПВЗ в базе Яндекса до сохранения: иначе на экспорте
+			// снова получим «Not found station by station_id», но уже без объяснений.
+			$point = $this->find_station( $station_id );
+			$force = ! empty( $_POST['force'] );
 
-			foreach ( $this->get_pickup_points( $order ) as $id => $point_address ) {
-				if ( $id === $station_id ) {
-					$address = $point_address;
-					break;
-				}
+			if ( ! $point && ! $force ) {
+				wp_send_json_error( [
+					'message'   => sprintf(
+						'Пункт выдачи с ID «%s» не найден в базе Яндекса. С несуществующим ID экспорт завершится ошибкой «Not found station by station_id», поэтому по умолчанию мы его не сохраняем. Проверьте ID в личном кабинете Яндекс Доставки — либо сохраните без проверки, если уверены (например, API Яндекса сейчас недоступно).',
+						$station_id
+					),
+					'can_force' => true,
+				] );
 			}
 
-			$order->set_destination_station_id( $station_id );
-			$order->set_destination_station_address( $address ?: $station_id );
+			$address = $this->get_station_address( $point ) ?: $station_id;
 
-			$changes[] = sprintf( 'пункт выдачи — %s', $address ?: $station_id );
+			$order->set_destination_station_id( $station_id );
+			$order->set_destination_station_address( $address );
+
+			$changes[] = sprintf( 'пункт выдачи — %s', $address );
 		}
 
 		if ( '' === (string) $order->get_state_status() ) {
@@ -587,28 +885,14 @@ class WCYD_Order_Repair {
 			$changes[] = 'статус Яндекс доставки — «Новый»';
 		}
 
-		if ( $changes ) {
-			$order->add_order_note( sprintf( 'Данные Яндекс доставки восстановлены вручную: %s.', implode( ', ', $changes ) ) );
-			$order->save();
+		if ( ! $changes ) {
+			wp_send_json_error( 'Нечего сохранять: выберите пункт выдачи или укажите его ID вручную.' );
 		}
 
-		$redirect = wp_get_referer() ?: $order->get_edit_order_url();
+		$order->add_order_note( sprintf( 'Данные Яндекс доставки восстановлены вручную: %s.', implode( ', ', $changes ) ) );
+		$order->save();
 
-		wp_safe_redirect( add_query_arg( 'wcyd_repaired', $changes ? 1 : 0, $redirect ) );
-		exit;
-	}
-
-	public function admin_notices() {
-
-		if ( ! isset( $_GET['wcyd_repaired'] ) ) {
-			return;
-		}
-
-		if ( '1' === (string) $_GET['wcyd_repaired'] ) {
-			printf( '<div class="notice notice-success is-dismissible"><p>%s</p></div>', 'Данные Яндекс доставки восстановлены. Теперь заказ виден в разделе «Заказы Я.Доставки», и его можно экспортировать кнопкой «Выбрать и экспортировать».' );
-		} else {
-			printf( '<div class="notice notice-warning is-dismissible"><p>%s</p></div>', 'Нечего было восстанавливать — данные заказа не изменились.' );
-		}
+		wp_send_json_success( sprintf( 'Сохранено: %s.', implode( ', ', $changes ) ) );
 	}
 
 	/* ---------------------------------------------------------------------
@@ -617,31 +901,83 @@ class WCYD_Order_Repair {
 
 	public function ajax_diagnose() {
 
-		$order_id = isset( $_POST['order_id'] ) ? absint( $_POST['order_id'] ) : 0;
-
-		if ( ! current_user_can( 'edit_shop_orders' ) ) {
-			wp_send_json_error( 'У вас недостаточно прав на выполнение этой операции.' );
-		}
-
-		check_ajax_referer( 'wcyd-diagnose-' . $order_id, 'security' );
-
-		$order = $this->get_yandex_order( $order_id );
-
-		if ( ! $order ) {
-			wp_send_json_error( 'Заказ не найден.' );
-		}
-
+		$order  = $this->authorize_request();
 		$method = $this->get_method_instance( $order );
+
+		$destination_id = (string) $order->get_destination_station_id();
+		$source_id      = $method ? (string) $method->get_platform_station_id() : '';
+		$is_pickup      = $this->is_pickup_order( $order );
 
 		$report = [
 			sprintf( 'Заказ #%s', $order->get_order_number() ),
 			sprintf( 'Статус Яндекс доставки: %s', $order->get_state_status() ?: '— (не задан, заказ не виден в списке заказов Я.Доставки)' ),
 			sprintf( 'Метод доставки: %s', $method ? $method->get_method_title() : '— (не найден в настройках Woocommerce)' ),
-			sprintf( 'Тариф: %s', $this->is_pickup_order( $order ) ? 'до ПВЗ' : 'до двери' ),
-			sprintf( 'ПВЗ получателя: %s', $order->get_destination_station_id() ?: '— (не сохранён)' ),
-			sprintf( 'Пункт отгрузки магазина: %s', $method ? ( $method->get_platform_station_id() ?: '— (не выбран в настройках метода)' ) : '—' ),
-			'',
+			sprintf( 'Тариф: %s', $is_pickup ? 'до ПВЗ' : 'до двери' ),
 		];
+
+		$blocker  = '';
+		$warnings = [];
+
+		if ( $is_pickup ) {
+
+			if ( '' === $destination_id ) {
+
+				$report[] = 'ПВЗ получателя: — НЕ СОХРАНЁН';
+				$blocker  = 'В заявку уходит пустой ПВЗ получателя — именно поэтому Яндекс отвечает «Not found station by station_id». Выберите пункт выдачи выше и нажмите «Восстановить данные заказа».';
+
+			} else {
+
+				$destination_point = $this->find_station( $destination_id );
+
+				$report[] = sprintf( 'ПВЗ получателя: %s', $destination_point
+					? sprintf( '%s — %s', $destination_id, $this->get_station_address( $destination_point ) ?: 'без адреса' )
+					: sprintf( '%s — не найден в базе Яндекса', $destination_id ) );
+
+				if ( ! $destination_point ) {
+					$warnings[] = 'Сохранённый ПВЗ получателя не отдаётся API Яндекса по своему ID — возможно, пункт закрыт. Если запрос ниже упадёт с «Not found station by station_id», выберите пункт выдачи заново.';
+				}
+			}
+		}
+
+		if ( '' === $source_id ) {
+
+			$report[] = 'Пункт отгрузки магазина: — не выбран';
+			$blocker  = $blocker ?: 'В настройках метода доставки (WooCommerce → Настройки → Доставка → ваш метод «Яндекс доставка») не выбран «Пункт приёма яндекса» или склад отгрузки.';
+
+		} else {
+
+			// Склад магазина (shipment_type = warehouse) в списке ПВЗ не значится,
+			// поэтому проверяем по базе только пункты приёма Яндекса.
+			$is_dropoff_point = ! $method || 'pickpoint' === $method->get_option( 'shipment_type', 'pickpoint' );
+			$source_point     = $is_dropoff_point ? $this->find_station( $source_id ) : null;
+
+			if ( ! $is_dropoff_point ) {
+				$report[] = sprintf( 'Пункт отгрузки магазина: %s (собственный склад)', $source_id );
+			} else {
+				$report[] = sprintf( 'Пункт отгрузки магазина: %s', $source_point
+					? sprintf( '%s — %s', $source_id, $this->get_station_address( $source_point ) ?: 'без адреса' )
+					: sprintf( '%s — не найден в базе Яндекса', $source_id ) );
+
+				if ( ! $source_point ) {
+					$warnings[] = 'Пункт отгрузки магазина не отдаётся API Яндекса по своему ID. Если экспорт падает с «Not found station by station_id» и ПВЗ получателя при этом на месте, перевыберите «Пункт приёма яндекса» в настройках метода доставки.';
+				}
+			}
+		}
+
+		$report[] = '';
+
+		foreach ( $warnings as $warning ) {
+			$report[] = sprintf( 'Предупреждение: %s', $warning );
+		}
+
+		if ( $warnings ) {
+			$report[] = '';
+		}
+
+		if ( $blocker ) {
+			$report[] = sprintf( 'Экспорт невозможен: %s', $blocker );
+			wp_send_json_error( implode( PHP_EOL, $report ) );
+		}
 
 		try {
 
@@ -653,7 +989,7 @@ class WCYD_Order_Repair {
 			}
 
 			if ( empty( $offers ) ) {
-				$report[] = 'Яндекс не вернул ни одного варианта доставки. Обычно это значит, что для указанной пары «пункт отгрузки → ПВЗ» нет доступных дат, либо ПВЗ закрыт/не обслуживается.';
+				$report[] = 'Яндекс не вернул ни одного варианта доставки. Обычно это значит, что для пары «пункт отгрузки → ПВЗ» нет доступных дат: проверьте расписание вывозов и не закрыт ли пункт.';
 				wp_send_json_error( implode( PHP_EOL, $report ) );
 			}
 
