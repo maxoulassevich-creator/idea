@@ -36,7 +36,7 @@ namespace AutoFarmPost
         public static ConfigEntry<int> SeedRows;
         public static ConfigEntry<int> OutputRows;
 
-        public static ConfigEntry<bool> ShowDivider;
+        public static ConfigEntry<bool> SplitView;
         public static ConfigEntry<bool> ShowHoverStatus;
 
         /// <summary>Seconds to wait before scanning empty ground again after a fruitless scan.</summary>
@@ -85,8 +85,8 @@ namespace AutoFarmPost
                 Describe("Rows of the harvest area (8 slots per row). Restart the game after changing.",
                     new AcceptableValueRange<int>(1, 4)));
 
-            ShowDivider = cfg.Bind(SecUi, "ShowDivider", true,
-                new ConfigDescription("Draw a line between the seed rows and the harvest rows."));
+            SplitView = cfg.Bind(SecUi, "SplitView", true,
+                new ConfigDescription("Show the container as two separate blocks: seeds on top, harvest below."));
             ShowHoverStatus = cfg.Bind(SecUi, "ShowHoverStatus", true,
                 new ConfigDescription("Show radius and last cycle result when looking at the post."));
 

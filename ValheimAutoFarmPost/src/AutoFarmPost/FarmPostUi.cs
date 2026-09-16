@@ -1,30 +1,45 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace AutoFarmPost
 {
     /// <summary>
-    ///     Draws a line between the seed rows and the harvest rows of an open farm post.
-    ///     Everything here is reached by reflection and is purely cosmetic: if the game ever
-    ///     renames these fields the line simply disappears.
+    ///     Splits the container window of a farm post into two separate blocks: the seed rows on
+    ///     top, the harvest rows below, with a real gap and a caption between them.
+    ///
+    ///     This moves the slot widgets the game already created instead of building a second
+    ///     window, so vanilla drag and drop keeps working exactly as before. Everything is looked
+    ///     up by name through reflection: if a future patch renames something, the window simply
+    ///     keeps its default layout instead of breaking.
     /// </summary>
     internal static class FarmPostUi
     {
-        private const string DividerName = "AutoFarmPostDivider";
+        private const string LabelName = "AutoFarmPostSplitLabel";
+
+        /// <summary>Gap between the two blocks, as a fraction of one slot. Must stay below 0.5.</summary>
+        private const float GapFactor = 0.35f;
+
+        private static readonly List<RectTransform> Slots = new List<RectTransform>();
+        private static readonly List<float> Columns = new List<float>();
 
         private static FieldInfo _currentContainerField;
         private static FieldInfo _containerGridField;
-        private static FieldInfo _elementSpaceField;
         private static FieldInfo _gridRootField;
+        private static FieldInfo _elementSpaceField;
+        private static FieldInfo _containerNameField;
+        private static PropertyInfo _textProperty;
+        private static PropertyInfo _fontSizeProperty;
 
         private static bool _fieldsChecked;
         private static bool _unavailable;
-        private static GameObject _divider;
+        private static bool _labelUnavailable;
+        private static GameObject _label;
 
-        public static void Update()
+        /// <summary>Called from LateUpdate so the game has already laid the grid out this frame.</summary>
+        public static void LateUpdate()
         {
             if (_unavailable)
             {
@@ -44,7 +59,7 @@ namespace AutoFarmPost
             catch (Exception e)
             {
                 _unavailable = true;
-                AutoFarmPlugin.Log.LogWarning("Container divider disabled: " + e.Message);
+                AutoFarmPlugin.Log.LogWarning("Split container view disabled: " + e.Message);
             }
         }
 
@@ -57,100 +72,286 @@ namespace AutoFarmPost
             }
 
             Container container = _currentContainerField.GetValue(gui) as Container;
-            bool wanted = ModConfig.ShowDivider.Value &&
+            bool wanted = ModConfig.SplitView.Value &&
                           container != null &&
                           container.GetComponent<FarmPost>() != null;
 
             if (!wanted)
             {
-                if (_divider != null)
+                if (_label != null)
                 {
-                    _divider.SetActive(false);
+                    _label.SetActive(false);
                 }
 
                 return;
             }
 
-            if (Build(gui, container) && _divider != null)
-            {
-                _divider.SetActive(true);
-            }
+            Layout(gui, container);
         }
 
-        private static bool Build(InventoryGui gui, Container container)
+        private static void Layout(InventoryGui gui, Container container)
         {
             object grid = _containerGridField.GetValue(gui);
             if (grid == null)
             {
-                return false;
+                return;
             }
 
-            if (_elementSpaceField == null)
+            if (_gridRootField == null)
             {
-                _elementSpaceField = AccessTools.Field(grid.GetType(), "m_elementSpace");
                 _gridRootField = AccessTools.Field(grid.GetType(), "m_gridRoot");
+                _elementSpaceField = AccessTools.Field(grid.GetType(), "m_elementSpace");
 
-                if (_elementSpaceField == null || _gridRootField == null)
+                if (_gridRootField == null)
                 {
                     _unavailable = true;
-                    return false;
+                    return;
                 }
             }
 
             RectTransform root = _gridRootField.GetValue(grid) as RectTransform;
             if (root == null)
             {
-                return false;
+                return;
             }
 
-            float space = (float)_elementSpaceField.GetValue(grid);
-            if (space <= 1f)
-            {
-                return false;
-            }
+            // Collect the slot widgets and the bounds of the grid.
+            Slots.Clear();
+            Columns.Clear();
 
-            // Copy the anchoring of a real slot so the line lands exactly on the grid.
-            RectTransform sample = null;
+            float minX = float.MaxValue;
+            float maxX = float.MinValue;
+            float maxY = float.MinValue;
+
             for (int i = 0; i < root.childCount; i++)
             {
                 RectTransform child = root.GetChild(i) as RectTransform;
-                if (child != null && child.name != DividerName)
+                if (child == null || child.name == LabelName || !child.gameObject.activeSelf)
                 {
-                    sample = child;
-                    break;
+                    continue;
+                }
+
+                Slots.Add(child);
+
+                Vector2 pos = child.anchoredPosition;
+                if (pos.x < minX) { minX = pos.x; }
+                if (pos.x > maxX) { maxX = pos.x; }
+                if (pos.y > maxY) { maxY = pos.y; }
+
+                bool known = false;
+                for (int c = 0; c < Columns.Count; c++)
+                {
+                    if (Mathf.Abs(Columns[c] - pos.x) < 1f)
+                    {
+                        known = true;
+                        break;
+                    }
+                }
+
+                if (!known)
+                {
+                    Columns.Add(pos.x);
                 }
             }
 
-            if (sample == null)
+            if (Slots.Count == 0)
             {
-                return false;
+                return;
             }
 
-            if (_divider == null)
+            // The distance between slots is measured from the widgets themselves - that is exact,
+            // whatever value the grid keeps in its own field.
+            float pitch = MeasurePitch();
+            if (pitch <= 1f)
             {
-                _divider = new GameObject(DividerName, typeof(RectTransform), typeof(Image));
-                _divider.transform.SetParent(root, false);
-
-                Image image = _divider.GetComponent<Image>();
-                image.color = new Color(0.92f, 0.78f, 0.38f, 0.7f);
-                image.raycastTarget = false;
+                return;
             }
 
             int height = Mathf.Max(2, container.m_height);
             int seedRows = Mathf.Clamp(ModConfig.SeedRows.Value, 1, height - 1);
-            int width = Mathf.Max(1, container.m_width);
+            float gap = pitch * GapFactor;
 
-            RectTransform rect = (RectTransform)_divider.transform;
-            rect.anchorMin = sample.anchorMin;
-            rect.anchorMax = sample.anchorMax;
-            rect.pivot = new Vector2(0f, 0.5f);
-            rect.sizeDelta = new Vector2(space * width, 3f);
-            rect.anchoredPosition = new Vector2(
-                sample.anchoredPosition.x - space * 0.5f,
-                sample.anchoredPosition.y - space * (seedRows - 0.5f));
-            rect.SetAsLastSibling();
+            for (int i = 0; i < Slots.Count; i++)
+            {
+                RectTransform slot = Slots[i];
+                Vector2 pos = slot.anchoredPosition;
 
+                int x = Mathf.RoundToInt((pos.x - minX) / pitch);
+                int y = Mathf.RoundToInt((maxY - pos.y) / pitch);
+
+                float targetX = minX + x * pitch;
+                float targetY = maxY - y * pitch - (y >= seedRows ? gap : 0f);
+
+                if (Mathf.Abs(pos.x - targetX) > 0.5f || Mathf.Abs(pos.y - targetY) > 0.5f)
+                {
+                    slot.anchoredPosition = new Vector2(targetX, targetY);
+                }
+            }
+
+            UpdateLabel(gui, root, minX, maxX, maxY, pitch, seedRows, gap);
+        }
+
+        /// <summary>Smallest distance between two slot columns.</summary>
+        private static float MeasurePitch()
+        {
+            Columns.Sort();
+
+            float pitch = 0f;
+            for (int i = 1; i < Columns.Count; i++)
+            {
+                float step = Columns[i] - Columns[i - 1];
+                if (step > 1f && (pitch <= 0f || step < pitch))
+                {
+                    pitch = step;
+                }
+            }
+
+            if (pitch <= 1f && _elementSpaceField != null)
+            {
+                try
+                {
+                    object grid = _containerGridField.GetValue(InventoryGui.instance);
+                    if (grid != null)
+                    {
+                        pitch = (float)_elementSpaceField.GetValue(grid);
+                    }
+                }
+                catch (Exception)
+                {
+                    pitch = 0f;
+                }
+            }
+
+            return pitch;
+        }
+
+        private static void UpdateLabel(InventoryGui gui, RectTransform root, float minX, float maxX,
+            float maxY, float pitch, int seedRows, float gap)
+        {
+            if (_labelUnavailable)
+            {
+                return;
+            }
+
+            try
+            {
+                if (_label == null && !CreateLabel(gui, root))
+                {
+                    _labelUnavailable = true;
+                    return;
+                }
+
+                RectTransform rect = (RectTransform)_label.transform;
+                RectTransform sample = Slots[0];
+
+                rect.anchorMin = sample.anchorMin;
+                rect.anchorMax = sample.anchorMax;
+                rect.pivot = new Vector2(0.5f, 0.5f);
+                rect.sizeDelta = new Vector2(maxX - minX + pitch, gap);
+                rect.anchoredPosition = new Vector2(
+                    (minX + maxX) * 0.5f,
+                    maxY - (seedRows - 0.5f) * pitch - gap * 0.5f);
+
+                // Compare against what the widget actually shows, so anything that overwrites the
+                // caption gets corrected on the next frame.
+                if (_textProperty != null)
+                {
+                    Component text = GetTextComponent(_label);
+                    if (text != null)
+                    {
+                        string wanted = Util.Localize("$autofarm_ui_split");
+                        string current = _textProperty.GetValue(text, null) as string;
+                        if (current != wanted)
+                        {
+                            _textProperty.SetValue(text, wanted, null);
+                        }
+                    }
+                }
+
+                _label.SetActive(true);
+            }
+            catch (Exception e)
+            {
+                _labelUnavailable = true;
+                AutoFarmPlugin.Log.LogWarning("Split caption disabled: " + e.Message);
+            }
+        }
+
+        /// <summary>Clones the window title so the caption inherits the game's font and style.</summary>
+        private static bool CreateLabel(InventoryGui gui, RectTransform root)
+        {
+            if (_containerNameField == null)
+            {
+                _containerNameField = AccessTools.Field(typeof(InventoryGui), "m_containerName");
+            }
+
+            Component title = _containerNameField != null ? _containerNameField.GetValue(gui) as Component : null;
+            if (title == null)
+            {
+                return false;
+            }
+
+            GameObject clone = UnityEngine.Object.Instantiate(title.gameObject, root, false);
+            clone.name = LabelName;
+
+            // Drop everything that could overwrite our text (localisation helpers and the like).
+            Component[] components = clone.GetComponents<Component>();
+            for (int i = 0; i < components.Length; i++)
+            {
+                Component component = components[i];
+                if (component == null || component is Transform)
+                {
+                    continue;
+                }
+
+                string typeName = component.GetType().Name;
+                if (typeName == "TextMeshProUGUI" || typeName == "CanvasRenderer")
+                {
+                    continue;
+                }
+
+                UnityEngine.Object.Destroy(component);
+            }
+
+            Component text = GetTextComponent(clone);
+            if (text == null)
+            {
+                UnityEngine.Object.Destroy(clone);
+                return false;
+            }
+
+            _textProperty = text.GetType().GetProperty("text");
+            _fontSizeProperty = text.GetType().GetProperty("fontSize");
+
+            if (_fontSizeProperty != null)
+            {
+                try
+                {
+                    _fontSizeProperty.SetValue(text, 16f, null);
+                }
+                catch (Exception)
+                {
+                    // keep the inherited size
+                }
+            }
+
+            clone.transform.SetAsLastSibling();
+            _label = clone;
             return true;
+        }
+
+        private static Component GetTextComponent(GameObject go)
+        {
+            Component[] components = go.GetComponents<Component>();
+            for (int i = 0; i < components.Length; i++)
+            {
+                if (components[i] != null && components[i].GetType().Name == "TextMeshProUGUI")
+                {
+                    return components[i];
+                }
+            }
+
+            return null;
         }
 
         private static void EnsureFields()
@@ -167,7 +368,7 @@ namespace AutoFarmPost
             if (_currentContainerField == null || _containerGridField == null)
             {
                 _unavailable = true;
-                AutoFarmPlugin.Log.LogWarning("Container divider disabled: inventory fields not found.");
+                AutoFarmPlugin.Log.LogWarning("Split container view disabled: inventory fields not found.");
             }
         }
     }

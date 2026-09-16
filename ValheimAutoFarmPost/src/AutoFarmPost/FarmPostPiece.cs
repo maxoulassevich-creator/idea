@@ -179,7 +179,8 @@ namespace AutoFarmPost
                 { "autofarm_hover_range", "Harvest {0} m / planting {1} m" },
                 { "autofarm_hover_last", "Last cycle: harvested {0}, planted {1}" },
                 { "autofarm_hover_full", "<color=orange>Harvest rows are full</color>" },
-                { "autofarm_hover_noseeds", "<color=orange>No seeds in the top rows</color>" }
+                { "autofarm_hover_noseeds", "<color=orange>No seeds in the top rows</color>" },
+                { "autofarm_ui_split", "seeds above  -  harvest below" }
             });
 
             loc.AddTranslation("Russian", new Dictionary<string, string>
@@ -193,7 +194,8 @@ namespace AutoFarmPost
                 { "autofarm_hover_range", "Сбор {0} м / посадка {1} м" },
                 { "autofarm_hover_last", "Прошлый цикл: собрано {0}, посажено {1}" },
                 { "autofarm_hover_full", "<color=orange>Ячейки урожая заполнены</color>" },
-                { "autofarm_hover_noseeds", "<color=orange>Нет семян в верхних рядах</color>" }
+                { "autofarm_hover_noseeds", "<color=orange>Нет семян в верхних рядах</color>" },
+                { "autofarm_ui_split", "сверху семена  -  снизу урожай" }
             });
         }
     }

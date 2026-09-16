@@ -16,7 +16,7 @@ namespace AutoFarmPost
     {
         public const string PluginGuid = "com.oulassevich.autofarmpost";
         public const string PluginName = "AutoFarmPost";
-        public const string PluginVersion = "1.0.0";
+        public const string PluginVersion = "1.1.0";
 
         internal static ManualLogSource Log;
 
@@ -44,9 +44,9 @@ namespace AutoFarmPost
             Log.LogInfo(PluginName + " " + PluginVersion + " loaded.");
         }
 
-        private void Update()
+        private void LateUpdate()
         {
-            FarmPostUi.Update();
+            FarmPostUi.LateUpdate();
         }
 
         private void OnDestroy()

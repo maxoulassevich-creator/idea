@@ -55,7 +55,7 @@
 | Filter | `ExtraPrefabs` | — | что ещё собирать, через запятую (`Pickable_Mushroom,...`) |
 | Filter | `IgnoredPrefabs` | — | что не трогать, через запятую |
 | Container | `SeedRows` / `OutputRows` | 2 / 2 | ряды под семена и урожай (нужен перезапуск игры) |
-| Interface | `ShowDivider` | true | жёлтая линия между половинами сундука |
+| Interface | `SplitView` | true | показывать сундук двумя отдельными блоками (семена / урожай) |
 | Interface | `ShowHoverStatus` | true | статус в подсказке при наведении |
 
 Игровые параметры помечены как admin-only: на выделенном сервере значения раздаются клиентам.
@@ -75,7 +75,7 @@
 | `PickableUtil.cs` | «срыв» растения без выпадения вещей на землю |
 | `PickableRegistry.cs` | быстрый список загруженных растений (без сканирования сцены) |
 | `Patches.cs` | регистрация растений + текст подсказки |
-| `FarmPostUi.cs` | линия-разделитель в открытом сундуке |
+| `FarmPostUi.cs` | разделение окна сундука на два блока по 16 ячеек |
 
 Важные решения:
 
@@ -97,7 +97,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1 -Install
 
 Скрипт находит игру, копирует `BepInEx.dll`, `0Harmony.dll` и `Jotunn.dll` из вашего профиля
 модов в `libs\`, собирает `dist\AutoFarmPost.dll`, делает пакет
-`dist\AutoFarmPost-1.0.0.zip` для «Import local mod», а с ключом `-Install` ещё и кладёт мод
+`dist\AutoFarmPost-1.1.0.zip` для «Import local mod», а с ключом `-Install` ещё и кладёт мод
 в профиль.
 
 Вручную:
