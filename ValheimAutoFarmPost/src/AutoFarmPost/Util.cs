@@ -50,21 +50,66 @@ namespace AutoFarmPost
             }
         }
 
+        private static Type _localizationType;
+        private static PropertyInfo _localizationInstanceProp;
+        private static FieldInfo _localizationInstanceField;
+        private static MethodInfo _localizeMethod;
+        private static bool _localizationChecked;
+
+        /// <summary>
+        ///     Resolves a "$token" through the game's own localization. Looked up by name so it
+        ///     does not matter which game assembly the class lives in; if it cannot be found the
+        ///     raw token is shown instead.
+        /// </summary>
         public static string Localize(string token)
         {
             try
             {
-                if (Localization.instance != null)
+                if (!_localizationChecked)
                 {
-                    return Localization.instance.Localize(token);
+                    _localizationChecked = true;
+                    _localizationType = AccessTools.TypeByName("Localization");
+
+                    if (_localizationType != null)
+                    {
+                        _localizationInstanceProp = _localizationType.GetProperty("instance",
+                            BindingFlags.Public | BindingFlags.Static);
+                        _localizationInstanceField = _localizationType.GetField("instance",
+                            BindingFlags.Public | BindingFlags.Static);
+                        _localizeMethod = AccessTools.Method(_localizationType, "Localize", new[] { typeof(string) });
+                    }
                 }
+
+                if (_localizeMethod == null)
+                {
+                    return token;
+                }
+
+                object instance = null;
+                if (!_localizeMethod.IsStatic)
+                {
+                    if (_localizationInstanceProp != null)
+                    {
+                        instance = _localizationInstanceProp.GetValue(null, null);
+                    }
+                    else if (_localizationInstanceField != null)
+                    {
+                        instance = _localizationInstanceField.GetValue(null);
+                    }
+
+                    if (instance == null)
+                    {
+                        return token;
+                    }
+                }
+
+                string result = _localizeMethod.Invoke(instance, new object[] { token }) as string;
+                return string.IsNullOrEmpty(result) ? token : result;
             }
             catch (Exception)
             {
-                // fall through
+                return token;
             }
-
-            return token;
         }
     }
 }

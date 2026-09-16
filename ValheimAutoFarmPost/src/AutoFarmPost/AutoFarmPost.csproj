@@ -46,8 +46,7 @@
 
   <ItemGroup>
     <!-- game -->
-    <Reference Include="$(ManagedDir)\assembly_valheim.dll" Private="false" />
-    <Reference Include="$(ManagedDir)\assembly_utils.dll" Private="false" />
+    <Reference Include="$(ManagedDir)\assembly_*.dll" Private="false" />
     <Reference Include="$(ManagedDir)\UnityEngine*.dll" Private="false" />
     <!-- mod loader + Jotunn, copied into libs\ by the build script -->
     <Reference Include="$(LibsDir)\BepInEx.dll" Private="false" />

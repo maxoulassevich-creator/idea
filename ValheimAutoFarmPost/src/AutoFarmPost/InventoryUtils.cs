@@ -1,4 +1,7 @@
+using System;
 using System.Collections.Generic;
+using System.Reflection;
+using HarmonyLib;
 using UnityEngine;
 
 namespace AutoFarmPost
@@ -137,6 +140,12 @@ namespace AutoFarmPost
                 return 0;
             }
 
+            List<ItemDrop.ItemData> items = GetItems(inv);
+            if (items == null)
+            {
+                return 0;
+            }
+
             int width = inv.GetWidth();
             int maxStack = Mathf.Max(1, proto.m_shared.m_maxStackSize);
             int left = amount;
@@ -149,7 +158,6 @@ namespace AutoFarmPost
                     for (int x = 0; x < width && left > 0; x++)
                     {
                         ItemDrop.ItemData slot = inv.GetItemAt(x, y);
-                        int add;
 
                         if (pass == 0)
                         {
@@ -158,7 +166,14 @@ namespace AutoFarmPost
                                 continue;
                             }
 
-                            add = Mathf.Min(maxStack - slot.m_stack, left);
+                            int add = Mathf.Min(maxStack - slot.m_stack, left);
+                            if (add <= 0)
+                            {
+                                continue;
+                            }
+
+                            slot.m_stack += add;
+                            left -= add;
                         }
                         else
                         {
@@ -167,30 +182,82 @@ namespace AutoFarmPost
                                 continue;
                             }
 
-                            add = Mathf.Min(maxStack, left);
-                        }
-
-                        if (add <= 0)
-                        {
-                            continue;
-                        }
-
-                        ItemDrop.ItemData item = proto.Clone();
-                        item.m_stack = add;
-                        item.m_gridPos = new Vector2i(x, y);
-                        item.m_dropPrefab = itemPrefab;
-
-                        // The game puts the item into that exact slot and raises its own
-                        // "inventory changed" event, which makes the container save itself.
-                        if (inv.AddItem(item, add, x, y))
-                        {
+                            int add = Mathf.Min(maxStack, left);
+                            ItemDrop.ItemData item = proto.Clone();
+                            item.m_stack = add;
+                            item.m_gridPos = new Vector2i(x, y);
+                            item.m_dropPrefab = itemPrefab;
+                            items.Add(item);
                             left -= add;
                         }
                     }
                 }
             }
 
+            if (left != amount)
+            {
+                NotifyChanged(inv);
+            }
+
             return amount - left;
+        }
+
+        // The item list and its change notification are reached by name: that works whether the
+        // game keeps them public or private, and does not depend on a method signature.
+        private static FieldInfo _itemsField;
+        private static MethodInfo _changedMethod;
+        private static bool _reflectionChecked;
+        private static bool _warned;
+
+        private static List<ItemDrop.ItemData> GetItems(Inventory inv)
+        {
+            if (!_reflectionChecked)
+            {
+                _reflectionChecked = true;
+                _itemsField = AccessTools.Field(typeof(Inventory), "m_inventory");
+                _changedMethod = AccessTools.Method(typeof(Inventory), "Changed", new Type[0]);
+            }
+
+            if (_itemsField != null)
+            {
+                try
+                {
+                    List<ItemDrop.ItemData> list = _itemsField.GetValue(inv) as List<ItemDrop.ItemData>;
+                    if (list != null)
+                    {
+                        return list;
+                    }
+                }
+                catch (Exception)
+                {
+                    // handled below
+                }
+            }
+
+            if (!_warned)
+            {
+                _warned = true;
+                AutoFarmPlugin.Log.LogError("Could not access the container inventory - harvesting is disabled.");
+            }
+
+            return null;
+        }
+
+        private static void NotifyChanged(Inventory inv)
+        {
+            if (_changedMethod == null)
+            {
+                return;
+            }
+
+            try
+            {
+                _changedMethod.Invoke(inv, null);
+            }
+            catch (Exception)
+            {
+                // the container is saved explicitly as well
+            }
         }
 
         private static bool SameItem(ItemDrop.ItemData a, ItemDrop.ItemData b)

@@ -2,17 +2,12 @@
     AutoFarmPost - сборка мода
 
     Запуск:
-        powershell -ExecutionPolicy Bypass -File .\build.ps1
         powershell -ExecutionPolicy Bypass -File .\build.ps1 -Install
+        powershell -ExecutionPolicy Bypass -File .\build.ps1 -ProfilePath "C:\...\profiles\Default" -Install
         powershell -ExecutionPolicy Bypass -File .\build.ps1 -ValheimPath "D:\SteamLibrary\steamapps\common\Valheim"
-        powershell -ExecutionPolicy Bypass -File .\build.ps1 -ProfilePath "C:\...\profiles\Default"
 
-    Ничего из интернета не качается, кроме одного служебного пакета для компилятора.
+    Из интернета качается только один служебный пакет для компилятора.
     BepInEx и Jotunn берутся из вашего профиля модов.
-
-    Результат:
-        dist\AutoFarmPost.dll        - сам мод
-        dist\AutoFarmPost-1.0.0.zip  - пакет для "Import local mod" в менеджере модов
 #>
 param(
     [string]$ValheimPath,
@@ -24,7 +19,6 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 $version = '1.0.0'
-$profileDir = $null
 $zipName = "AutoFarmPost-$version.zip"
 
 Write-Host ''
@@ -92,7 +86,84 @@ if ($ValheimPath) {
 }
 Write-Host "Игра       : $ValheimPath"
 
-# --- 3. BepInEx и Jotunn из вашего профиля модов ---------------------------
+# --- 3. Профиль модов ------------------------------------------------------
+function Add-ProfileRoots([string]$start, $list) {
+    if ([string]::IsNullOrWhiteSpace($start) -or -not (Test-Path $start)) { return }
+
+    $direct = Join-Path $start 'profiles'
+    if ((Test-Path $direct) -and -not $list.Contains($direct)) { $list.Add($direct) }
+
+    foreach ($a in @(Get-ChildItem -LiteralPath $start -Directory -ErrorAction SilentlyContinue)) {
+        $p1 = Join-Path $a.FullName 'profiles'
+        if ((Test-Path $p1) -and -not $list.Contains($p1)) { $list.Add($p1) }
+
+        foreach ($b in @(Get-ChildItem -LiteralPath $a.FullName -Directory -ErrorAction SilentlyContinue)) {
+            $p2 = Join-Path $b.FullName 'profiles'
+            if ((Test-Path $p2) -and -not $list.Contains($p2)) { $list.Add($p2) }
+        }
+    }
+}
+
+function Find-Profiles {
+    $roots = New-Object System.Collections.Generic.List[string]
+    $roots.Add((Join-Path $env:APPDATA 'Thunderstore Mod Manager'))
+    $roots.Add((Join-Path $env:APPDATA 'r2modmanPlus-local'))
+    foreach ($pattern in @(
+        (Join-Path $env:APPDATA '*hunderstore*'),
+        (Join-Path $env:LOCALAPPDATA '*hunderstore*'),
+        (Join-Path $env:APPDATA '*r2modman*'),
+        (Join-Path $env:LOCALAPPDATA '*r2modman*'))) {
+        foreach ($item in @(Get-Item $pattern -ErrorAction SilentlyContinue)) {
+            if ($item.PSIsContainer -and -not $roots.Contains($item.FullName)) { $roots.Add($item.FullName) }
+        }
+    }
+
+    $profileRoots = New-Object System.Collections.Generic.List[string]
+    foreach ($r in $roots) { Add-ProfileRoots $r $profileRoots }
+
+    $profiles = New-Object System.Collections.Generic.List[object]
+    foreach ($pr in $profileRoots) {
+        foreach ($p in @(Get-ChildItem -LiteralPath $pr -Directory -ErrorAction SilentlyContinue)) {
+            if (Test-Path (Join-Path $p.FullName 'BepInEx')) { $profiles.Add($p) }
+        }
+    }
+
+    # BepInEx может быть установлен прямо в папку игры
+    if (Test-Path (Join-Path $ValheimPath 'BepInEx')) {
+        $profiles.Add((Get-Item -LiteralPath $ValheimPath))
+    }
+
+    # сначала профили Valheim, потом самые свежие
+    return @($profiles | Sort-Object -Property @{ Expression = { if ($_.FullName -like '*Valheim*') { 0 } else { 1 } } }, @{ Expression = { $_.LastWriteTime }; Descending = $true })
+}
+
+$profileDir = $null
+if ($ProfilePath) {
+    if (-not (Test-Path $ProfilePath)) {
+        Write-Host "ОШИБКА: папки '$ProfilePath' не существует." -ForegroundColor Red
+        exit 1
+    }
+    if (-not (Test-Path (Join-Path $ProfilePath 'BepInEx'))) {
+        Write-Host "Внимание: в '$ProfilePath' нет папки BepInEx. Проверьте, что это папка профиля." -ForegroundColor Yellow
+    }
+    $profileDir = $ProfilePath
+} else {
+    $found = Find-Profiles
+    if ($found.Count -gt 0) {
+        $profileDir = $found[0].FullName
+        if ($found.Count -gt 1) {
+            Write-Host "Профилей найдено: $($found.Count), беру самый свежий. Другой можно задать ключом -ProfilePath." -ForegroundColor DarkGray
+        }
+    }
+}
+
+if ($profileDir) {
+    Write-Host "Профиль    : $profileDir"
+} else {
+    Write-Host 'Профиль    : не найден (сборке не мешает, но -Install работать не будет)' -ForegroundColor Yellow
+}
+
+# --- 4. BepInEx и Jotunn ---------------------------------------------------
 $libs = Join-Path $root 'libs'
 if (-not (Test-Path $libs)) { New-Item -ItemType Directory -Path $libs | Out-Null }
 
@@ -102,90 +173,58 @@ function Find-FileIn([string]$rootPath, [string]$fileName) {
     $hits = Get-ChildItem -LiteralPath $rootPath -Filter $fileName -Recurse -File -ErrorAction SilentlyContinue
     if (-not $hits) { return $null }
 
-    # сначала то, что лежит в папках Valheim, потом самое свежее
     $ordered = @($hits | Sort-Object -Property @{ Expression = { if ($_.FullName -like '*Valheim*') { 0 } else { 1 } } }, @{ Expression = { $_.LastWriteTime }; Descending = $true })
     return $ordered[0].FullName
 }
 
 $needed = @('BepInEx.dll', '0Harmony.dll', 'Jotunn.dll')
-$haveAll = $true
-foreach ($n in $needed) { if (-not (Test-Path (Join-Path $libs $n))) { $haveAll = $false } }
+$missing = @($needed | Where-Object { -not (Test-Path (Join-Path $libs $_)) })
 
-if (-not $haveAll) {
-    Write-Host 'Ищу BepInEx и Jotunn в профилях модов (несколько секунд)...'
+if ($missing.Count -gt 0) {
+    Write-Host 'Ищу BepInEx и Jotunn (несколько секунд)...'
 
     $searchRoots = New-Object System.Collections.Generic.List[string]
-    if ($ProfilePath -and (Test-Path $ProfilePath)) { $searchRoots.Add($ProfilePath) }
-
-    $patterns = @(
-        (Join-Path $env:APPDATA 'Thunderstore Mod Manager\DataFolder\Valheim'),
-        (Join-Path $env:APPDATA 'r2modmanPlus-local\Valheim'),
+    if ($profileDir) { $searchRoots.Add($profileDir) }
+    $searchRoots.Add((Join-Path $env:APPDATA 'Thunderstore Mod Manager'))
+    $searchRoots.Add((Join-Path $env:APPDATA 'r2modmanPlus-local'))
+    foreach ($pattern in @(
         (Join-Path $env:APPDATA '*hunderstore*'),
         (Join-Path $env:LOCALAPPDATA '*hunderstore*'),
         (Join-Path $env:APPDATA '*r2modman*'),
-        (Join-Path $env:LOCALAPPDATA '*r2modman*'),
-        (Join-Path $ValheimPath 'BepInEx')
-    )
-    foreach ($pattern in $patterns) {
+        (Join-Path $env:LOCALAPPDATA '*r2modman*'))) {
         foreach ($item in @(Get-Item $pattern -ErrorAction SilentlyContinue)) {
-            if ($item.PSIsContainer -and -not $searchRoots.Contains($item.FullName)) {
-                $searchRoots.Add($item.FullName)
-            }
+            if ($item.PSIsContainer -and -not $searchRoots.Contains($item.FullName)) { $searchRoots.Add($item.FullName) }
         }
     }
+    $searchRoots.Add((Join-Path $ValheimPath 'BepInEx'))
 
-    $bepPath = $null
-    foreach ($r in $searchRoots) {
-        $bepPath = Find-FileIn $r 'BepInEx.dll'
-        if ($bepPath) { break }
-    }
-
-    if (-not $bepPath) {
-        Write-Host ''
-        Write-Host 'ОШИБКА: не нашёл BepInEx.' -ForegroundColor Red
-        Write-Host 'В менеджере модов в нужном профиле должны стоять BepInExPack Valheim и Jotunn.'
-        Write-Host 'Если они стоят, укажите папку профиля явно:'
-        Write-Host '   (менеджер -> Settings -> Browse profile folder, скопировать путь)'
-        Write-Host '   powershell -ExecutionPolicy Bypass -File .\build.ps1 -ProfilePath "<папка профиля>"'
-        Write-Host ''
-        Write-Host 'Или скопируйте BepInEx.dll, 0Harmony.dll и Jotunn.dll вручную в папку:'
-        Write-Host "   $libs"
-        exit 1
-    }
-
-    $coreDir = Split-Path $bepPath -Parent
-    $profileDir = Split-Path (Split-Path $coreDir -Parent) -Parent
-    Write-Host "Профиль    : $profileDir"
-    Copy-Item $bepPath $libs -Force
-
-    $harmony = Join-Path $coreDir '0Harmony.dll'
-    if (-not (Test-Path $harmony)) { $harmony = Find-FileIn $profileDir '0Harmony.dll' }
-    if (-not $harmony) {
-        Write-Host 'ОШИБКА: рядом с BepInEx.dll нет 0Harmony.dll. Переустановите BepInExPack Valheim.' -ForegroundColor Red
-        exit 1
-    }
-    Copy-Item $harmony $libs -Force
-
-    $jotunn = Find-FileIn $profileDir 'Jotunn.dll'
-    if (-not $jotunn) {
+    foreach ($file in $missing) {
+        $hit = $null
         foreach ($r in $searchRoots) {
-            $jotunn = Find-FileIn $r 'Jotunn.dll'
-            if ($jotunn) { break }
+            $hit = Find-FileIn $r $file
+            if ($hit) { break }
         }
+
+        if (-not $hit) {
+            Write-Host ''
+            Write-Host "ОШИБКА: не нашёл $file." -ForegroundColor Red
+            Write-Host 'В профиле модов должны стоять BepInExPack Valheim (denikson) и Jotunn (ValheimModding).'
+            Write-Host 'Если они стоят, укажите папку профиля явно:'
+            Write-Host '   (менеджер -> Settings -> Browse profile folder, скопировать путь)'
+            Write-Host '   powershell -ExecutionPolicy Bypass -File .\build.ps1 -ProfilePath "<папка профиля>" -Install'
+            Write-Host ''
+            Write-Host "Или скопируйте BepInEx.dll, 0Harmony.dll и Jotunn.dll вручную в папку: $libs"
+            exit 1
+        }
+
+        Copy-Item $hit $libs -Force
+        Write-Host "  $file <- $hit" -ForegroundColor DarkGray
     }
-    if (-not $jotunn) {
-        Write-Host ''
-        Write-Host 'ОШИБКА: не нашёл Jotunn.dll.' -ForegroundColor Red
-        Write-Host 'Поставьте мод Jotunn (автор ValheimModding) в тот же профиль и запустите скрипт снова.'
-        exit 1
-    }
-    Copy-Item $jotunn $libs -Force
-    Write-Host "Jotunn     : $jotunn"
 }
 
 Write-Host "Библиотеки : $libs"
 
-# --- 4. Сборка -------------------------------------------------------------
+# --- 5. Сборка -------------------------------------------------------------
 $proj = Join-Path $root 'src\AutoFarmPost\AutoFarmPost.csproj'
 Write-Host 'Собираю...'
 
@@ -208,7 +247,7 @@ if (Test-Path $dist) { Remove-Item $dist -Recurse -Force }
 New-Item -ItemType Directory -Path $dist | Out-Null
 Copy-Item $dll $dist
 
-# --- 5. Пакет для менеджера модов -----------------------------------------
+# --- 6. Пакет для менеджера модов -----------------------------------------
 if (-not $NoPackage) {
     $staging = Join-Path $dist 'package'
     New-Item -ItemType Directory -Path $staging | Out-Null
@@ -222,25 +261,20 @@ if (-not $NoPackage) {
     Remove-Item $staging -Recurse -Force
 }
 
-# --- 6. Установка в профиль (ключ -Install) --------------------------------
+# --- 7. Установка в профиль (ключ -Install) --------------------------------
 $installedTo = $null
 if ($Install) {
-    $base = $null
-    if ($ProfilePath) { $base = $ProfilePath }
-    elseif ($profileDir) { $base = $profileDir }
-
-    if ($base) {
-        $target = Join-Path (Join-Path $base 'BepInEx\plugins') 'AutoFarmPost'
+    if (-not $profileDir) {
+        Write-Host 'Не нашёл профиль: укажите -ProfilePath "<папка профиля>".' -ForegroundColor Yellow
+    } else {
+        $target = Join-Path (Join-Path $profileDir 'BepInEx\plugins') 'AutoFarmPost'
         if (-not (Test-Path $target)) { New-Item -ItemType Directory -Path $target -Force | Out-Null }
         Copy-Item $dll $target -Force
         $installedTo = $target
-    } else {
-        Write-Host 'Не понял, в какой профиль ставить: укажите -ProfilePath "<папка профиля>".' -ForegroundColor Yellow
-        Write-Host '(папка libs уже заполнена, поиск профиля в этот раз не выполнялся)' -ForegroundColor Yellow
     }
 }
 
-# --- 7. Итог ---------------------------------------------------------------
+# --- 8. Итог ---------------------------------------------------------------
 Write-Host ''
 Write-Host 'ГОТОВО' -ForegroundColor Green
 Write-Host "  Мод   : $(Join-Path $dist 'AutoFarmPost.dll')"
