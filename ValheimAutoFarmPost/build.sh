@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# AutoFarmPost - build script for Linux / macOS (Proton or native install).
-#   ./build.sh                       - autodetect the game
-#   ./build.sh /path/to/Valheim      - explicit game folder
+# AutoFarmPost - build script for Linux / macOS.
+#   ./build.sh                            - autodetect game and mod profile
+#   ./build.sh /path/to/Valheim           - explicit game folder
+# BepInEx.dll, 0Harmony.dll and Jotunn.dll are copied from your mod profile into libs/.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -29,8 +30,37 @@ if [ ! -f "${valheim:-}/valheim_Data/Managed/assembly_valheim.dll" ]; then
     echo "ERROR: Valheim not found. Run: ./build.sh /path/to/Valheim" >&2
     exit 1
 fi
-
 echo "Valheim : $valheim"
+
+mkdir -p "$root/libs"
+find_lib() {
+    local name="$1"
+    [ -f "$root/libs/$name" ] && return 0
+    local hit
+    for base in \
+        "$HOME/.config/r2modmanPlus-local/Valheim" \
+        "$HOME/.config/Thunderstore Mod Manager/DataFolder/Valheim" \
+        "$HOME/.config" \
+        "$valheim/BepInEx"; do
+        [ -d "$base" ] || continue
+        hit="$(find "$base" -name "$name" -type f 2>/dev/null | head -n 1 || true)"
+        if [ -n "$hit" ]; then
+            cp "$hit" "$root/libs/"
+            echo "  $name <- $hit"
+            return 0
+        fi
+    done
+    return 1
+}
+
+for lib in BepInEx.dll 0Harmony.dll Jotunn.dll; do
+    if ! find_lib "$lib"; then
+        echo "ERROR: $lib not found. Install BepInExPack Valheim + Jotunn in your mod profile," >&2
+        echo "       or copy the three DLLs into $root/libs manually." >&2
+        exit 1
+    fi
+done
+
 dotnet build "$root/src/AutoFarmPost/AutoFarmPost.csproj" -c Release -v minimal -p:ValheimDir="$valheim"
 
 dll="$root/src/AutoFarmPost/bin/Release/AutoFarmPost.dll"

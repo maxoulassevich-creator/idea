@@ -107,14 +107,7 @@ namespace AutoFarmPost
 
             if (harvested > 0 || planted > 0)
             {
-                try
-                {
-                    _container.Save();
-                }
-                catch (Exception e)
-                {
-                    AutoFarmPlugin.Log.LogWarning("Container save failed: " + e.Message);
-                }
+                Util.SaveContainer(_container);
             }
         }
 

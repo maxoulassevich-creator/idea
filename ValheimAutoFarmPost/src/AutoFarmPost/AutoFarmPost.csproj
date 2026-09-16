@@ -16,6 +16,7 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <NoWarn>MSB3243;CS0618</NoWarn>
+    <LibsDir>$(MSBuildThisFileDirectory)..\..\libs</LibsDir>
   </PropertyGroup>
 
   <!-- Where is the game? Order: -p:ValheimDir=... > VALHEIM_INSTALL env var > usual Steam folders -->
@@ -30,24 +31,28 @@
     <ManagedDir>$(ValheimDir)\valheim_Data\Managed</ManagedDir>
   </PropertyGroup>
 
-  <Target Name="CheckValheimPath" BeforeTargets="PrepareForBuild">
+  <Target Name="CheckPaths" BeforeTargets="PrepareForBuild">
     <Error Condition="!Exists('$(ManagedDir)\assembly_valheim.dll')"
            Text="Valheim was not found. Build with -p:ValheimDir=&quot;C:\path\to\Valheim&quot; (the folder that contains valheim.exe), or set the VALHEIM_INSTALL environment variable." />
+    <Error Condition="!Exists('$(LibsDir)\BepInEx.dll') Or !Exists('$(LibsDir)\0Harmony.dll') Or !Exists('$(LibsDir)\Jotunn.dll')"
+           Text="The libs folder needs BepInEx.dll, 0Harmony.dll and Jotunn.dll. Run build.ps1 - it copies them from your mod profile. See README.md, section 'Sborka'." />
   </Target>
 
+  <!-- The only package we need: reference assemblies so .NET Framework 4.7.2 can be targeted
+       without Visual Studio. Everything else comes from the game and from your mod profile. -->
   <ItemGroup>
-    <PackageReference Include="BepInEx.Core" Version="5.*" />
-    <PackageReference Include="JotunnLib" Version="2.*" />
-    <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.*" PrivateAssets="all" />
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
   </ItemGroup>
 
-  <!-- Game assemblies. Publicize lets the mod read the few fields the game keeps private. -->
   <ItemGroup>
-    <Reference Include="$(ManagedDir)\assembly_valheim.dll" Publicize="true" Private="false" />
-    <Reference Include="$(ManagedDir)\assembly_utils.dll" Publicize="true" Private="false" />
+    <!-- game -->
+    <Reference Include="$(ManagedDir)\assembly_valheim.dll" Private="false" />
+    <Reference Include="$(ManagedDir)\assembly_utils.dll" Private="false" />
     <Reference Include="$(ManagedDir)\UnityEngine*.dll" Private="false" />
-    <Reference Include="$(ManagedDir)\Unity.TextMeshPro.dll" Private="false" Condition="Exists('$(ManagedDir)\Unity.TextMeshPro.dll')" />
+    <!-- mod loader + Jotunn, copied into libs\ by the build script -->
+    <Reference Include="$(LibsDir)\BepInEx.dll" Private="false" />
+    <Reference Include="$(LibsDir)\0Harmony.dll" Private="false" />
+    <Reference Include="$(LibsDir)\Jotunn.dll" Private="false" />
   </ItemGroup>
 
   <!-- Optional: copy straight into a mod profile with -p:DeployPath="...\BepInEx\plugins" -->

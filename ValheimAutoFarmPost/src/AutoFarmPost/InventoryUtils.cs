@@ -141,51 +141,53 @@ namespace AutoFarmPost
             int maxStack = Mathf.Max(1, proto.m_shared.m_maxStackSize);
             int left = amount;
 
-            // 1. top up stacks that are already there
-            for (int y = y0; y <= y1 && left > 0; y++)
+            // pass 0: top up stacks that are already there, pass 1: use free slots
+            for (int pass = 0; pass < 2 && left > 0; pass++)
             {
-                for (int x = 0; x < width && left > 0; x++)
+                for (int y = y0; y <= y1 && left > 0; y++)
                 {
-                    ItemDrop.ItemData slot = inv.GetItemAt(x, y);
-                    if (slot == null || !SameItem(slot, proto))
+                    for (int x = 0; x < width && left > 0; x++)
                     {
-                        continue;
-                    }
+                        ItemDrop.ItemData slot = inv.GetItemAt(x, y);
+                        int add;
 
-                    int add = Mathf.Min(maxStack - slot.m_stack, left);
-                    if (add <= 0)
-                    {
-                        continue;
-                    }
+                        if (pass == 0)
+                        {
+                            if (slot == null || !SameItem(slot, proto))
+                            {
+                                continue;
+                            }
 
-                    slot.m_stack += add;
-                    left -= add;
+                            add = Mathf.Min(maxStack - slot.m_stack, left);
+                        }
+                        else
+                        {
+                            if (slot != null)
+                            {
+                                continue;
+                            }
+
+                            add = Mathf.Min(maxStack, left);
+                        }
+
+                        if (add <= 0)
+                        {
+                            continue;
+                        }
+
+                        ItemDrop.ItemData item = proto.Clone();
+                        item.m_stack = add;
+                        item.m_gridPos = new Vector2i(x, y);
+                        item.m_dropPrefab = itemPrefab;
+
+                        // The game puts the item into that exact slot and raises its own
+                        // "inventory changed" event, which makes the container save itself.
+                        if (inv.AddItem(item, add, x, y))
+                        {
+                            left -= add;
+                        }
+                    }
                 }
-            }
-
-            // 2. use free slots
-            for (int y = y0; y <= y1 && left > 0; y++)
-            {
-                for (int x = 0; x < width && left > 0; x++)
-                {
-                    if (inv.GetItemAt(x, y) != null)
-                    {
-                        continue;
-                    }
-
-                    int add = Mathf.Min(maxStack, left);
-                    ItemDrop.ItemData item = proto.Clone();
-                    item.m_stack = add;
-                    item.m_gridPos = new Vector2i(x, y);
-                    item.m_dropPrefab = itemPrefab;
-                    inv.m_inventory.Add(item);
-                    left -= add;
-                }
-            }
-
-            if (left != amount)
-            {
-                inv.Changed();
             }
 
             return amount - left;

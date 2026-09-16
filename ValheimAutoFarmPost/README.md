@@ -92,11 +92,13 @@
 ## Сборка
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\build.ps1
+powershell -ExecutionPolicy Bypass -File .\build.ps1 -Install
 ```
 
-Скрипт сам находит игру, собирает `dist\AutoFarmPost.dll` и пакет
-`dist\AutoFarmPost-1.0.0.zip` для «Import local mod».
+Скрипт находит игру, копирует `BepInEx.dll`, `0Harmony.dll` и `Jotunn.dll` из вашего профиля
+модов в `libs\`, собирает `dist\AutoFarmPost.dll`, делает пакет
+`dist\AutoFarmPost-1.0.0.zip` для «Import local mod», а с ключом `-Install` ещё и кладёт мод
+в профиль.
 
 Вручную:
 
@@ -104,28 +106,33 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 dotnet build src\AutoFarmPost\AutoFarmPost.csproj -c Release -p:ValheimDir="C:\...\Valheim"
 ```
 
-Проект ссылается на сборки из вашей папки с игрой и публицизирует их
-(`BepInEx.AssemblyPublicizer.MSBuild`), Jotunn подтягивается из NuGet (`JotunnLib`).
+Зависимости:
+
+* сборки игры — из вашей папки с Valheim (`valheim_Data\Managed`);
+* `BepInEx.dll`, `0Harmony.dll`, `Jotunn.dll` — из папки `libs\` (их туда кладёт `build.ps1`);
+* из NuGet тянется единственный пакет `Microsoft.NETFramework.ReferenceAssemblies` —
+  он нужен, чтобы собирать под .NET Framework 4.7.2 без Visual Studio.
+
+Публицизация сборок не используется: код обходится публичным API игры, а немногие приватные
+члены (`Pickable.SetPicked`, поля `InventoryGui`, `Container.Save`) берутся через рефлексию
+и при их отсутствии просто отключают соответствующую мелочь.
 
 ### Если сборка не проходит
 
-Код написан под публичный API Valheim/Jotunn, но собрать его против реальных сборок
-именно версии 1.0.12 я не мог — у меня нет файлов игры. Поэтому возможен один-два
-«отвалившихся» вызова, если Iron Gate что-то переименовали. Ошибки компилятора вида
-`CS1061: 'X' does not contain a definition for 'Y'` чинятся точечно, вот где что лежит:
+Код написан под публичный API Valheim/Jotunn, но собрать его против реальных сборок именно
+версии 1.0.12 я не мог — у меня нет файлов игры. Ошибки вида
+`CS1061: 'X' does not contain a definition for 'Y'` чинятся точечно:
 
 | Что может отвалиться | Файл | Как чинить |
 |---|---|---|
-| `zdo.Set(hash, true)` / `GetBool` | `PickableUtil.cs` | подобрать существующую перегрузку `ZDO.Set` (например `Set(hash, 1)`) |
-| `inv.m_inventory` / `inv.Changed()` | `InventoryUtils.cs` | заменить на `inv.AddItem(item, amount, x, y)` |
+| `libs\...dll не найдены` | — | запустить `build.ps1`, он копирует их из профиля модов |
+| `zdo.Set(hash, true)` / `GetBool` | `PickableUtil.cs` | подобрать существующую перегрузку `ZDO.Set` |
+| `inv.AddItem(item, amount, x, y)` | `InventoryUtils.cs` | сверить сигнатуру `Inventory.AddItem` |
 | `Heightmap.FindHeightmap/IsCultivated/FindBiome` | `FarmPost.cs` | убрать проверку земли или заменить актуальным методом |
-| `WearNTear.m_noRoofWear` | `FarmPostPiece.cs` | просто удалить метод `SetupWear` |
-| `PieceConfig` / `CustomPiece` | `FarmPostPiece.cs` | сверить с документацией Jotunn той версии, что стоит у вас |
-| конфликт `UnityEngine.*` из NuGet | `AutoFarmPost.csproj` | добавить `ExcludeAssets="compile"` к `JotunnLib` и сослаться на `Jotunn.dll` из профиля |
+| `WearNTear.m_noRoofWear` | `FarmPostPiece.cs` | удалить метод `SetupWear` |
+| `PieceConfig` / `CustomPiece` | `FarmPostPiece.cs` | сверить с документацией вашей версии Jotunn |
 
 Всё остальное — обычный C#, изолированный от игры.
-
----
 
 ## Ограничения
 
