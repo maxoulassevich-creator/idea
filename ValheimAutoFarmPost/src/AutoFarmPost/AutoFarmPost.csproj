@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Optional: create a file called valheim.props next to this one with
+       <Project><PropertyGroup><ValheimDir>D:\Games\Valheim</ValheimDir></PropertyGroup></Project> -->
+  <Import Project="$(MSBuildThisFileDirectory)valheim.props" Condition="Exists('$(MSBuildThisFileDirectory)valheim.props')" />
+
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <AssemblyName>AutoFarmPost</AssemblyName>
+    <RootNamespace>AutoFarmPost</RootNamespace>
+    <Product>AutoFarmPost</Product>
+    <Version>1.0.0</Version>
+    <LangVersion>7.3</LangVersion>
+    <DebugType>none</DebugType>
+    <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <NoWarn>MSB3243;CS0618</NoWarn>
+  </PropertyGroup>
+
+  <!-- Where is the game? Order: -p:ValheimDir=... > VALHEIM_INSTALL env var > usual Steam folders -->
+  <PropertyGroup>
+    <ValheimDir Condition="'$(ValheimDir)' == '' And '$(VALHEIM_INSTALL)' != ''">$(VALHEIM_INSTALL)</ValheimDir>
+    <ValheimDir Condition="'$(ValheimDir)' == '' And Exists('C:\Program Files (x86)\Steam\steamapps\common\Valheim\valheim_Data\Managed\assembly_valheim.dll')">C:\Program Files (x86)\Steam\steamapps\common\Valheim</ValheimDir>
+    <ValheimDir Condition="'$(ValheimDir)' == '' And Exists('C:\Program Files\Steam\steamapps\common\Valheim\valheim_Data\Managed\assembly_valheim.dll')">C:\Program Files\Steam\steamapps\common\Valheim</ValheimDir>
+    <ValheimDir Condition="'$(ValheimDir)' == '' And Exists('C:\SteamLibrary\steamapps\common\Valheim\valheim_Data\Managed\assembly_valheim.dll')">C:\SteamLibrary\steamapps\common\Valheim</ValheimDir>
+    <ValheimDir Condition="'$(ValheimDir)' == '' And Exists('D:\Steam\steamapps\common\Valheim\valheim_Data\Managed\assembly_valheim.dll')">D:\Steam\steamapps\common\Valheim</ValheimDir>
+    <ValheimDir Condition="'$(ValheimDir)' == '' And Exists('D:\SteamLibrary\steamapps\common\Valheim\valheim_Data\Managed\assembly_valheim.dll')">D:\SteamLibrary\steamapps\common\Valheim</ValheimDir>
+    <ValheimDir Condition="'$(ValheimDir)' == '' And Exists('E:\SteamLibrary\steamapps\common\Valheim\valheim_Data\Managed\assembly_valheim.dll')">E:\SteamLibrary\steamapps\common\Valheim</ValheimDir>
+    <ManagedDir>$(ValheimDir)\valheim_Data\Managed</ManagedDir>
+  </PropertyGroup>
+
+  <Target Name="CheckValheimPath" BeforeTargets="PrepareForBuild">
+    <Error Condition="!Exists('$(ManagedDir)\assembly_valheim.dll')"
+           Text="Valheim was not found. Build with -p:ValheimDir=&quot;C:\path\to\Valheim&quot; (the folder that contains valheim.exe), or set the VALHEIM_INSTALL environment variable." />
+  </Target>
+
+  <ItemGroup>
+    <PackageReference Include="BepInEx.Core" Version="5.*" />
+    <PackageReference Include="JotunnLib" Version="2.*" />
+    <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.*" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- Game assemblies. Publicize lets the mod read the few fields the game keeps private. -->
+  <ItemGroup>
+    <Reference Include="$(ManagedDir)\assembly_valheim.dll" Publicize="true" Private="false" />
+    <Reference Include="$(ManagedDir)\assembly_utils.dll" Publicize="true" Private="false" />
+    <Reference Include="$(ManagedDir)\UnityEngine*.dll" Private="false" />
+    <Reference Include="$(ManagedDir)\Unity.TextMeshPro.dll" Private="false" Condition="Exists('$(ManagedDir)\Unity.TextMeshPro.dll')" />
+  </ItemGroup>
+
+  <!-- Optional: copy straight into a mod profile with -p:DeployPath="...\BepInEx\plugins" -->
+  <Target Name="DeployToProfile" AfterTargets="Build" Condition="'$(DeployPath)' != ''">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(DeployPath)" />
+    <Message Importance="high" Text="Copied $(TargetFileName) to $(DeployPath)" />
+  </Target>
+
+</Project>

@@ -1,0 +1,7 @@
+{
+  "name": "AutoFarmPost",
+  "version_number": "1.0.0",
+  "website_url": "",
+  "description": "A farm post that automatically harvests crops and berries around it and replants seeds from its own inventory.",
+  "dependencies": []
+}
