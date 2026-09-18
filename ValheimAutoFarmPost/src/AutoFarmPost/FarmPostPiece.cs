@@ -54,6 +54,7 @@ namespace AutoFarmPost
 
                 SetupContainer(prefab);
                 SetupWear(prefab);
+                SetupVisual(prefab);
 
                 if (prefab.GetComponent<FarmPost>() == null)
                 {
@@ -72,6 +73,12 @@ namespace AutoFarmPost
                     new RequirementConfig { Item = "Wood", Amount = 10, Recover = true },
                     new RequirementConfig { Item = "Stone", Amount = 5, Recover = true }
                 };
+
+                Sprite icon = RenderIcon(prefab);
+                if (icon != null)
+                {
+                    config.Icon = icon;
+                }
 
                 PieceManager.Instance.AddPiece(new CustomPiece(prefab, false, config));
                 AutoFarmPlugin.Log.LogInfo("Farm post registered (base: " + basePrefab.name + ").");
@@ -114,6 +121,110 @@ namespace AutoFarmPost
             if (container.m_closeEffects == null)
             {
                 container.m_closeEffects = new EffectList();
+            }
+        }
+
+        /// <summary>
+        ///     Swaps the borrowed pole model for our own: a round carved pillar with a raven
+        ///     head. The renderers themselves are kept so the game's wear-and-tear system keeps
+        ///     working; only the mesh behind them changes.
+        /// </summary>
+        private static void SetupVisual(GameObject prefab)
+        {
+            try
+            {
+                Mesh mesh = RavenPostMesh.Get();
+                if (mesh == null)
+                {
+                    return;
+                }
+
+                MeshFilter[] filters = prefab.GetComponentsInChildren<MeshFilter>(true);
+                for (int i = 0; i < filters.Length; i++)
+                {
+                    filters[i].sharedMesh = mesh;
+                    Reset(filters[i].transform, prefab.transform);
+                }
+
+                if (filters.Length == 0)
+                {
+                    AutoFarmPlugin.Log.LogWarning("Base prefab has no mesh to replace - the post keeps its old look.");
+                }
+
+                // the pole's thin collider does not fit a carved post any more
+                BoxCollider[] boxes = prefab.GetComponentsInChildren<BoxCollider>(true);
+                for (int i = 0; i < boxes.Length; i++)
+                {
+                    boxes[i].center = new Vector3(0f, 0.95f, 0.01f);
+                    boxes[i].size = new Vector3(0.34f, 1.90f, 0.34f);
+                    Reset(boxes[i].transform, prefab.transform);
+                }
+
+                if (boxes.Length == 0)
+                {
+                    MeshCollider[] meshColliders = prefab.GetComponentsInChildren<MeshCollider>(true);
+                    for (int i = 0; i < meshColliders.Length; i++)
+                    {
+                        meshColliders[i].sharedMesh = mesh;
+                        Reset(meshColliders[i].transform, prefab.transform);
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                AutoFarmPlugin.Log.LogWarning("Could not build the post model: " + e.Message);
+            }
+        }
+
+        private static void Reset(Transform target, Transform root)
+        {
+            if (target == null || target == root)
+            {
+                return;
+            }
+
+            target.localPosition = Vector3.zero;
+            target.localRotation = Quaternion.identity;
+            target.localScale = Vector3.one;
+        }
+
+        /// <summary>
+        ///     Asks Jotunn to render an icon of the finished prefab. Done through reflection so a
+        ///     renamed API only costs us the icon, never the build.
+        /// </summary>
+        private static Sprite RenderIcon(GameObject prefab)
+        {
+            try
+            {
+                Type managerType = typeof(RenderManager);
+                object manager = managerType.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static)
+                    ?.GetValue(null, null);
+                Type requestType = managerType.GetNestedType("RenderRequest");
+                if (manager == null || requestType == null)
+                {
+                    return null;
+                }
+
+                object request = Activator.CreateInstance(requestType, new object[] { prefab });
+
+                object rotation = managerType.GetField("IsometricRotation", BindingFlags.Public | BindingFlags.Static)
+                    ?.GetValue(null);
+                if (rotation != null)
+                {
+                    PropertyInfo rotationProperty = requestType.GetProperty("Rotation");
+                    if (rotationProperty != null)
+                    {
+                        rotationProperty.SetValue(request, rotation, null);
+                    }
+                }
+
+                MethodInfo render = managerType.GetMethod("Render", new[] { requestType });
+                return render != null ? render.Invoke(manager, new[] { request }) as Sprite : null;
+            }
+            catch (Exception e)
+            {
+                AutoFarmPlugin.Log.LogDebug("Icon rendering skipped: " + e.Message);
+                return null;
             }
         }
 
