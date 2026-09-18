@@ -16,7 +16,7 @@ namespace AutoFarmPost
     {
         public const string PluginGuid = "com.oulassevich.autofarmpost";
         public const string PluginName = "AutoFarmPost";
-        public const string PluginVersion = "1.2.0";
+        public const string PluginVersion = "1.3.0";
 
         internal static ManualLogSource Log;
 

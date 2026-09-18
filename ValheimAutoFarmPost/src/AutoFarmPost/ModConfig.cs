@@ -30,6 +30,8 @@ namespace AutoFarmPost
         public static ConfigEntry<bool> ReplantEnabled;
         public static ConfigEntry<bool> PlantOnEmptyGround;
         public static ConfigEntry<bool> RequireCultivated;
+        public static ConfigEntry<float> SeedShare;
+        public static ConfigEntry<bool> SeedsToSeedRows;
         public static ConfigEntry<string> ExtraIncludeList;
         public static ConfigEntry<string> ExcludeList;
 
@@ -73,6 +75,12 @@ namespace AutoFarmPost
                 Describe("Also fill free cultivated ground inside the planting radius with seeds from the top rows."));
             RequireCultivated = cfg.Bind(SecFilter, "RequireCultivatedGround", true,
                 Describe("Only plant on ground worked with a cultivator. Turning this off lets plants that do not need it grow anywhere."));
+            SeedShare = cfg.Bind(SecFilter, "SeedShare", 0.5f,
+                Describe("Share of the harvested vegetables and berries that goes back into the seed rows, " +
+                         "so the post can plant them and grow seeds. 0 - everything goes to the harvest rows, " +
+                         "1 - everything goes to the seed rows.", new AcceptableValueRange<float>(0f, 1f)));
+            SeedsToSeedRows = cfg.Bind(SecFilter, "SeedsToSeedRows", true,
+                Describe("Harvested seeds always go to the seed rows, never to the harvest rows."));
             ExtraIncludeList = cfg.Bind(SecFilter, "ExtraPrefabs", "",
                 Describe("Extra pickable prefabs to harvest, comma separated. Example: Pickable_Mushroom,Pickable_Thistle"));
             ExcludeList = cfg.Bind(SecFilter, "IgnoredPrefabs", "",

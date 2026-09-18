@@ -31,6 +31,7 @@ namespace AutoFarmPost
         public static readonly HashSet<string> CropPickables = new HashSet<string>();
 
         private static readonly Dictionary<string, bool> BerryCache = new Dictionary<string, bool>();
+        private static readonly Dictionary<string, bool> SeedItemCache = new Dictionary<string, bool>();
 
         private static bool _built;
 
@@ -103,6 +104,59 @@ namespace AutoFarmPost
 
             _built = true;
             AutoFarmPlugin.Log.LogInfo("Known crops: " + CropPickables.Count + ", known seeds: " + SeedToPlant.Count);
+        }
+
+        /// <summary>True when this item can be planted, i.e. it is worth keeping in the seed rows.</summary>
+        public static bool IsPlantable(GameObject itemPrefab)
+        {
+            if (itemPrefab == null)
+            {
+                return false;
+            }
+
+            ItemDrop drop = itemPrefab.GetComponent<ItemDrop>();
+            if (drop == null || drop.m_itemData == null || drop.m_itemData.m_shared == null)
+            {
+                return false;
+            }
+
+            return SeedToPlant.ContainsKey(drop.m_itemData.m_shared.m_name);
+        }
+
+        /// <summary>
+        ///     True for seed items (carrot seeds and the like). Recognised by name: the localisation
+        ///     token of every seed item contains "seed" whatever language the game runs in.
+        /// </summary>
+        public static bool IsSeedItem(GameObject itemPrefab)
+        {
+            if (itemPrefab == null)
+            {
+                return false;
+            }
+
+            bool cached;
+            if (SeedItemCache.TryGetValue(itemPrefab.name, out cached))
+            {
+                return cached;
+            }
+
+            bool seed = Contains(itemPrefab.name, "seed");
+            if (!seed)
+            {
+                ItemDrop drop = itemPrefab.GetComponent<ItemDrop>();
+                if (drop != null && drop.m_itemData != null && drop.m_itemData.m_shared != null)
+                {
+                    seed = Contains(drop.m_itemData.m_shared.m_name, "seed");
+                }
+            }
+
+            SeedItemCache[itemPrefab.name] = seed;
+            return seed;
+        }
+
+        private static bool Contains(string text, string needle)
+        {
+            return !string.IsNullOrEmpty(text) && text.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         public static bool IsHarvestable(Pickable pickable)

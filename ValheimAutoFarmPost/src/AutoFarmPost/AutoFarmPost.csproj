@@ -9,7 +9,7 @@
     <AssemblyName>AutoFarmPost</AssemblyName>
     <RootNamespace>AutoFarmPost</RootNamespace>
     <Product>AutoFarmPost</Product>
-    <Version>1.2.0</Version>
+    <Version>1.3.0</Version>
     <LangVersion>7.3</LangVersion>
     <DebugType>none</DebugType>
     <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>

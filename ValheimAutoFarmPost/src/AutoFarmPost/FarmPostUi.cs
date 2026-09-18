@@ -20,7 +20,7 @@ namespace AutoFarmPost
         private const string LabelName = "AutoFarmPostSplitLabel";
 
         /// <summary>Gap between the two blocks, as a fraction of one slot. Must stay below 0.5.</summary>
-        private const float GapFactor = 0.35f;
+        private const float GapFactor = 0.26f;
 
         private static readonly List<RectTransform> Slots = new List<RectTransform>();
         private static readonly List<float> Columns = new List<float>();
@@ -121,7 +121,7 @@ namespace AutoFarmPost
 
             float minX = float.MaxValue;
             float maxX = float.MinValue;
-            float maxY = float.MinValue;
+            float minY = float.MaxValue;
 
             for (int i = 0; i < root.childCount; i++)
             {
@@ -136,7 +136,7 @@ namespace AutoFarmPost
                 Vector2 pos = child.anchoredPosition;
                 if (pos.x < minX) { minX = pos.x; }
                 if (pos.x > maxX) { maxX = pos.x; }
-                if (pos.y > maxY) { maxY = pos.y; }
+                if (pos.y < minY) { minY = pos.y; }
 
                 bool known = false;
                 for (int c = 0; c < Columns.Count; c++)
@@ -167,9 +167,22 @@ namespace AutoFarmPost
                 return;
             }
 
-            int height = Mathf.Max(2, container.m_height);
-            int seedRows = Mathf.Clamp(ModConfig.SeedRows.Value, 1, height - 1);
             float gap = pitch * GapFactor;
+
+            // Rows are counted from the bottom row up, and the bottom row never moves: the
+            // container window has no spare space below it, so pushing the harvest block down
+            // would clip its last row. The seed block is lifted instead.
+            int maxK = 0;
+            for (int i = 0; i < Slots.Count; i++)
+            {
+                int k = Mathf.RoundToInt((Slots[i].anchoredPosition.y - minY) / pitch);
+                if (k > maxK)
+                {
+                    maxK = k;
+                }
+            }
+
+            int seedRows = Mathf.Clamp(ModConfig.SeedRows.Value, 1, Mathf.Max(1, maxK));
 
             for (int i = 0; i < Slots.Count; i++)
             {
@@ -177,10 +190,11 @@ namespace AutoFarmPost
                 Vector2 pos = slot.anchoredPosition;
 
                 int x = Mathf.RoundToInt((pos.x - minX) / pitch);
-                int y = Mathf.RoundToInt((maxY - pos.y) / pitch);
+                int k = Mathf.RoundToInt((pos.y - minY) / pitch);
+                int gridY = maxK - k;                        // 0 is the top row
 
                 float targetX = minX + x * pitch;
-                float targetY = maxY - y * pitch - (y >= seedRows ? gap : 0f);
+                float targetY = minY + k * pitch + (gridY < seedRows ? gap : 0f);
 
                 if (Mathf.Abs(pos.x - targetX) > 0.5f || Mathf.Abs(pos.y - targetY) > 0.5f)
                 {
@@ -188,7 +202,7 @@ namespace AutoFarmPost
                 }
             }
 
-            UpdateLabel(gui, root, minX, maxX, maxY, pitch, seedRows, gap);
+            UpdateLabel(gui, root, minX, maxX, minY, pitch, maxK, seedRows, gap);
         }
 
         /// <summary>Smallest distance between two slot columns.</summary>
@@ -226,7 +240,7 @@ namespace AutoFarmPost
         }
 
         private static void UpdateLabel(InventoryGui gui, RectTransform root, float minX, float maxX,
-            float maxY, float pitch, int seedRows, float gap)
+            float minY, float pitch, int maxK, int seedRows, float gap)
         {
             if (_labelUnavailable)
             {
@@ -250,7 +264,7 @@ namespace AutoFarmPost
                 rect.sizeDelta = new Vector2(maxX - minX + pitch, gap);
                 rect.anchoredPosition = new Vector2(
                     (minX + maxX) * 0.5f,
-                    maxY - (seedRows - 0.5f) * pitch - gap * 0.5f);
+                    minY + (maxK - seedRows) * pitch + pitch * 0.5f + gap * 0.5f);
 
                 // Compare against what the widget actually shows, so anything that overwrites the
                 // caption gets corrected on the next frame.
@@ -327,7 +341,7 @@ namespace AutoFarmPost
             {
                 try
                 {
-                    _fontSizeProperty.SetValue(text, 16f, null);
+                    _fontSizeProperty.SetValue(text, 13f, null);
                 }
                 catch (Exception)
                 {

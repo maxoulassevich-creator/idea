@@ -29,6 +29,7 @@ namespace AutoFarmPost
         private readonly List<Pending> _pending = new List<Pending>();
         private readonly List<string> _seedNames = new List<string>();
         private readonly List<GameObject> _usableSeeds = new List<GameObject>();
+        private readonly Dictionary<string, float> _splitCredit = new Dictionary<string, float>();
 
         private ZNetView _nview;
         private Container _container;
@@ -94,7 +95,7 @@ namespace AutoFarmPost
             _outputFull = false;
             PrepareSeeds(inv, seedY0, seedY1);
 
-            int harvested = Harvest(inv, outY0, outY1);
+            int harvested = Harvest(inv, seedY0, seedY1, outY0, outY1);
             int planted = Replant(inv, seedY0, seedY1);
 
             if (ModConfig.PlantOnEmptyGround.Value)
@@ -152,7 +153,7 @@ namespace AutoFarmPost
             _noSeeds = _usableSeeds.Count == 0;
         }
 
-        private int Harvest(Inventory inv, int outY0, int outY1)
+        private int Harvest(Inventory inv, int seedY0, int seedY1, int outY0, int outY1)
         {
             if (!ModConfig.HarvestCrops.Value && !ModConfig.HarvestBerries.Value &&
                 ModConfig.IncludeSet.Count == 0)
@@ -188,11 +189,30 @@ namespace AutoFarmPost
                 }
 
                 int amount = Mathf.Max(1, pickable.m_amount);
-                if (!InventoryUtils.CanFit(inv, itemPrefab, amount, outY0, outY1))
+
+                int roomSeeds = InventoryUtils.Room(inv, itemPrefab, seedY0, seedY1);
+                int roomOutput = InventoryUtils.Room(inv, itemPrefab, outY0, outY1);
+                if (roomSeeds + roomOutput < amount)
                 {
                     // Nothing is picked when there is no room - the crop simply stays in the field.
                     _outputFull = true;
                     break;
+                }
+
+                int toSeeds, toOutput;
+                SplitHarvest(itemPrefab, amount, out toSeeds, out toOutput);
+
+                // whatever does not fit in its own half goes to the other one
+                if (toSeeds > roomSeeds)
+                {
+                    toOutput += toSeeds - roomSeeds;
+                    toSeeds = roomSeeds;
+                }
+
+                if (toOutput > roomOutput)
+                {
+                    toSeeds += toOutput - roomOutput;
+                    toOutput = roomOutput;
                 }
 
                 // Remember the spot before the plant disappears.
@@ -207,7 +227,18 @@ namespace AutoFarmPost
                     _pending.Add(pending);
                 }
 
-                if (InventoryUtils.Store(inv, itemPrefab, amount, outY0, outY1) <= 0)
+                int stored = 0;
+                if (toSeeds > 0)
+                {
+                    stored += InventoryUtils.Store(inv, itemPrefab, toSeeds, seedY0, seedY1);
+                }
+
+                if (toOutput > 0)
+                {
+                    stored += InventoryUtils.Store(inv, itemPrefab, toOutput, outY0, outY1);
+                }
+
+                if (stored <= 0)
                 {
                     _outputFull = true;
                     break;
@@ -218,6 +249,66 @@ namespace AutoFarmPost
             }
 
             return count;
+        }
+
+        /// <summary>
+        ///     Decides where a harvested stack goes.
+        ///
+        ///     Seeds go to the seed rows in full - they are only useful for planting. Vegetables
+        ///     and berries that can themselves be planted are shared between the two halves
+        ///     (half by default), so the post keeps growing the seed version of the crop while
+        ///     still filling the harvest rows. Anything that cannot be planted goes down in full.
+        ///
+        ///     Most crops drop a single item, so an exact half is impossible per pick; the
+        ///     remainder is carried over and the share comes out exact over a few harvests.
+        /// </summary>
+        private void SplitHarvest(GameObject itemPrefab, int amount, out int toSeeds, out int toOutput)
+        {
+            toSeeds = 0;
+            toOutput = amount;
+
+            if (!FarmData.IsPlantable(itemPrefab))
+            {
+                return;
+            }
+
+            if (FarmData.IsSeedItem(itemPrefab) && ModConfig.SeedsToSeedRows.Value)
+            {
+                toSeeds = amount;
+                toOutput = 0;
+                return;
+            }
+
+            float share = Mathf.Clamp01(ModConfig.SeedShare.Value);
+            if (share <= 0f)
+            {
+                return;
+            }
+
+            if (share >= 1f)
+            {
+                toSeeds = amount;
+                toOutput = 0;
+                return;
+            }
+
+            string key = Util.PrefabName(itemPrefab);
+            float credit;
+            if (!_splitCredit.TryGetValue(key, out credit))
+            {
+                credit = share;          // the very first pick already counts, so seeding starts at once
+            }
+
+            credit += amount * share;
+            int up = Mathf.FloorToInt(credit + 0.0001f);
+            if (up > amount)
+            {
+                up = amount;
+            }
+
+            _splitCredit[key] = credit - up;
+            toSeeds = up;
+            toOutput = amount - up;
         }
 
         /// <summary>

@@ -95,12 +95,13 @@ namespace AutoFarmPost
             return left == 0;
         }
 
-        public static bool CanFit(Inventory inv, GameObject itemPrefab, int amount, int y0, int y1)
+        /// <summary>How many more of this item the given rows can take.</summary>
+        public static int Room(Inventory inv, GameObject itemPrefab, int y0, int y1)
         {
             ItemDrop.ItemData proto = GetPrototype(itemPrefab);
             if (proto == null || proto.m_shared == null)
             {
-                return false;
+                return 0;
             }
 
             int width = inv.GetWidth();
@@ -120,15 +121,10 @@ namespace AutoFarmPost
                     {
                         room += Mathf.Max(0, maxStack - slot.m_stack);
                     }
-
-                    if (room >= amount)
-                    {
-                        return true;
-                    }
                 }
             }
 
-            return room >= amount;
+            return room;
         }
 
         /// <summary>Puts items into the given rows only. Returns how many were actually stored.</summary>
