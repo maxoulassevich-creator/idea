@@ -106,6 +106,16 @@ namespace AutoFarmPost
             AutoFarmPlugin.Log.LogInfo("Known crops: " + CropPickables.Count + ", known seeds: " + SeedToPlant.Count);
         }
 
+        public static bool IsPlantableName(string sharedName)
+        {
+            return !string.IsNullOrEmpty(sharedName) && SeedToPlant.ContainsKey(sharedName);
+        }
+
+        public static bool IsSeedName(string sharedName)
+        {
+            return Contains(sharedName, "seed");
+        }
+
         /// <summary>True when this item can be planted, i.e. it is worth keeping in the seed rows.</summary>
         public static bool IsPlantable(GameObject itemPrefab)
         {

@@ -1,4 +1,5 @@
 using HarmonyLib;
+using UnityEngine;
 
 namespace AutoFarmPost
 {
@@ -10,6 +11,51 @@ namespace AutoFarmPost
         private static void PickableAwakePostfix(Pickable __instance)
         {
             PickableRegistry.Add(__instance);
+        }
+    }
+
+    /// <summary>Keeps <see cref="ContainerRegistry" /> up to date.</summary>
+    public static class ContainerPatches
+    {
+        [HarmonyPatch(typeof(Container), "Awake")]
+        [HarmonyPostfix]
+        private static void ContainerAwakePostfix(Container __instance)
+        {
+            ContainerRegistry.Add(__instance);
+        }
+    }
+
+    /// <summary>
+    ///     The scarecrow: creatures cannot damage crops standing inside a post's radius.
+    ///     Players still can, so a field can be cleared by hand.
+    /// </summary>
+    public static class ScarecrowPatches
+    {
+        [HarmonyPatch(typeof(Destructible), "Damage")]
+        [HarmonyPrefix]
+        private static bool DestructibleDamagePrefix(Destructible __instance, HitData hit)
+        {
+            if (!ModConfig.Scarecrow.Value)
+            {
+                return true;
+            }
+
+            if (__instance.GetComponent<Plant>() == null && __instance.GetComponent<Pickable>() == null)
+            {
+                return true;
+            }
+
+            if (hit != null && hit.GetAttacker() is Player)
+            {
+                return true;
+            }
+
+            if (!FarmPostRegistry.IsProtected(__instance.transform.position))
+            {
+                return true;
+            }
+
+            return false;
         }
     }
 
@@ -39,3 +85,4 @@ namespace AutoFarmPost
         }
     }
 }
+

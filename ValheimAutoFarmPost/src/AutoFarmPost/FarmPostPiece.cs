@@ -61,6 +61,11 @@ namespace AutoFarmPost
                     prefab.AddComponent<FarmPost>();
                 }
 
+                if (prefab.GetComponent<PerchedRaven>() == null)
+                {
+                    prefab.AddComponent<PerchedRaven>();
+                }
+
                 PieceConfig config = new PieceConfig();
                 config.Name = NameToken;
                 config.Description = DescToken;
@@ -74,7 +79,7 @@ namespace AutoFarmPost
                     new RequirementConfig { Item = "Stone", Amount = 5, Recover = true }
                 };
 
-                Sprite icon = RenderIcon(prefab);
+                Sprite icon = IconRenderer.Render(prefab);
                 if (icon != null)
                 {
                     config.Icon = icon;
@@ -82,6 +87,8 @@ namespace AutoFarmPost
 
                 PieceManager.Instance.AddPiece(new CustomPiece(prefab, false, config));
                 AutoFarmPlugin.Log.LogInfo("Farm post registered (base: " + basePrefab.name + ").");
+
+                MythicFruit.Create();
             }
             catch (Exception e)
             {
@@ -188,46 +195,6 @@ namespace AutoFarmPost
             target.localScale = Vector3.one;
         }
 
-        /// <summary>
-        ///     Asks Jotunn to render an icon of the finished prefab. Done through reflection so a
-        ///     renamed API only costs us the icon, never the build.
-        /// </summary>
-        private static Sprite RenderIcon(GameObject prefab)
-        {
-            try
-            {
-                Type managerType = typeof(RenderManager);
-                object manager = managerType.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static)
-                    ?.GetValue(null, null);
-                Type requestType = managerType.GetNestedType("RenderRequest");
-                if (manager == null || requestType == null)
-                {
-                    return null;
-                }
-
-                object request = Activator.CreateInstance(requestType, new object[] { prefab });
-
-                object rotation = managerType.GetField("IsometricRotation", BindingFlags.Public | BindingFlags.Static)
-                    ?.GetValue(null);
-                if (rotation != null)
-                {
-                    PropertyInfo rotationProperty = requestType.GetProperty("Rotation");
-                    if (rotationProperty != null)
-                    {
-                        rotationProperty.SetValue(request, rotation, null);
-                    }
-                }
-
-                MethodInfo render = managerType.GetMethod("Render", new[] { requestType });
-                return render != null ? render.Invoke(manager, new[] { request }) as Sprite : null;
-            }
-            catch (Exception e)
-            {
-                AutoFarmPlugin.Log.LogDebug("Icon rendering skipped: " + e.Message);
-                return null;
-            }
-        }
-
         private static void SetupWear(GameObject prefab)
         {
             WearNTear wear = prefab.GetComponent<WearNTear>();
@@ -291,7 +258,17 @@ namespace AutoFarmPost
                 { "autofarm_hover_last", "Last cycle: harvested {0}, planted {1}" },
                 { "autofarm_hover_full", "<color=orange>Harvest rows are full</color>" },
                 { "autofarm_hover_noseeds", "<color=orange>No seeds in the top rows</color>" },
-                { "autofarm_ui_split", "seeds above  -  harvest below" }
+                { "autofarm_hover_mythic", "Mythic fruits found: {0}" },
+                { "autofarm_ui_split", "seeds above  -  harvest below" },
+                { "msg_autofarm_mythic", "The raven found a mythic fruit" },
+                { "item_autofarm_mythic", "Mythic Fruit" },
+                {
+                    "item_autofarm_mythic_desc",
+                    "A fruit that should not exist. The raven turns one up in the field once in a " +
+                    "long while. Eating it is worth more than any feast - but the gift is brief."
+                },
+                { "se_autofarm_mythic", "Gift of the Raven" },
+                { "se_autofarm_mythic_tooltip", "Health and stamina regenerate much faster, and you carry more." }
             });
 
             loc.AddTranslation("Russian", new Dictionary<string, string>
@@ -306,7 +283,17 @@ namespace AutoFarmPost
                 { "autofarm_hover_last", "Прошлый цикл: собрано {0}, посажено {1}" },
                 { "autofarm_hover_full", "<color=orange>Ячейки урожая заполнены</color>" },
                 { "autofarm_hover_noseeds", "<color=orange>Нет семян в верхних рядах</color>" },
-                { "autofarm_ui_split", "сверху семена  -  снизу урожай" }
+                { "autofarm_hover_mythic", "Найдено мифических плодов: {0}" },
+                { "autofarm_ui_split", "сверху семена  -  снизу урожай" },
+                { "msg_autofarm_mythic", "Ворон нашёл мифический плод" },
+                { "item_autofarm_mythic", "Мифический плод" },
+                {
+                    "item_autofarm_mythic_desc",
+                    "Плод, которого не должно быть. Ворон находит такой в поле раз в долгое время. " +
+                    "Съесть его выгоднее любого пира — но дар недолог."
+                },
+                { "se_autofarm_mythic", "Дар ворона" },
+                { "se_autofarm_mythic_tooltip", "Здоровье и выносливость восстанавливаются намного быстрее, и вы несёте больше." }
             });
         }
     }

@@ -18,7 +18,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
-$version = '1.3.0'
+$version = '1.4.0'
 $zipName = "AutoFarmPost-$version.zip"
 
 Write-Host ''

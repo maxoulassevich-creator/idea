@@ -98,7 +98,11 @@ namespace AutoFarmPost
         /// <summary>How many more of this item the given rows can take.</summary>
         public static int Room(Inventory inv, GameObject itemPrefab, int y0, int y1)
         {
-            ItemDrop.ItemData proto = GetPrototype(itemPrefab);
+            return Room(inv, GetPrototype(itemPrefab), y0, y1);
+        }
+
+        public static int Room(Inventory inv, ItemDrop.ItemData proto, int y0, int y1)
+        {
             if (proto == null || proto.m_shared == null)
             {
                 return 0;
@@ -130,7 +134,16 @@ namespace AutoFarmPost
         /// <summary>Puts items into the given rows only. Returns how many were actually stored.</summary>
         public static int Store(Inventory inv, GameObject itemPrefab, int amount, int y0, int y1)
         {
-            ItemDrop.ItemData proto = GetPrototype(itemPrefab);
+            return StoreItem(inv, GetPrototype(itemPrefab), amount, y0, y1, itemPrefab);
+        }
+
+        /// <summary>
+        ///     Same, but from an existing item (a stack in a chest, for instance), so quality and
+        ///     variant are carried over.
+        /// </summary>
+        public static int StoreItem(Inventory inv, ItemDrop.ItemData proto, int amount, int y0, int y1,
+            GameObject itemPrefab = null)
+        {
             if (proto == null || proto.m_shared == null || amount <= 0)
             {
                 return 0;
@@ -182,7 +195,11 @@ namespace AutoFarmPost
                             ItemDrop.ItemData item = proto.Clone();
                             item.m_stack = add;
                             item.m_gridPos = new Vector2i(x, y);
-                            item.m_dropPrefab = itemPrefab;
+                            if (itemPrefab != null)
+                            {
+                                item.m_dropPrefab = itemPrefab;
+                            }
+
                             items.Add(item);
                             left -= add;
                         }
@@ -254,6 +271,77 @@ namespace AutoFarmPost
             {
                 // the container is saved explicitly as well
             }
+        }
+
+        /// <summary>
+        ///     Moves up to <paramref name="max" /> items of an existing stack into the given rows of
+        ///     another inventory. Returns how many were moved; the source keeps whatever did not fit.
+        /// </summary>
+        public static int Transfer(Inventory source, ItemDrop.ItemData item, Inventory target,
+            int targetY0, int targetY1, int max)
+        {
+            if (source == null || target == null || item == null || max <= 0)
+            {
+                return 0;
+            }
+
+            int amount = Mathf.Min(max, item.m_stack);
+            amount = Mathf.Min(amount, Room(target, item, targetY0, targetY1));
+            if (amount <= 0)
+            {
+                return 0;
+            }
+
+            int moved = StoreItem(target, item, amount, targetY0, targetY1);
+            if (moved > 0)
+            {
+                source.RemoveItem(item, moved);
+            }
+
+            return moved;
+        }
+
+        /// <summary>Every stack currently sitting in the given rows.</summary>
+        public static void CollectItems(Inventory inv, int y0, int y1, List<ItemDrop.ItemData> result)
+        {
+            int width = inv.GetWidth();
+
+            for (int y = y0; y <= y1; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    ItemDrop.ItemData slot = inv.GetItemAt(x, y);
+                    if (slot != null && slot.m_stack > 0)
+                    {
+                        result.Add(slot);
+                    }
+                }
+            }
+        }
+
+        /// <summary>Share of the slots in the given rows that hold something, 0..1.</summary>
+        public static float Fullness(Inventory inv, int y0, int y1)
+        {
+            int width = inv.GetWidth();
+            int total = width * (y1 - y0 + 1);
+            if (total <= 0)
+            {
+                return 1f;
+            }
+
+            int used = 0;
+            for (int y = y0; y <= y1; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    if (inv.GetItemAt(x, y) != null)
+                    {
+                        used++;
+                    }
+                }
+            }
+
+            return (float)used / total;
         }
 
         private static bool SameItem(ItemDrop.ItemData a, ItemDrop.ItemData b)

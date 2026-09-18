@@ -20,6 +20,7 @@ namespace AutoFarmPost
             public Quaternion Rot;
         }
 
+        private static readonly int MythicKey = "autofarm_mythic".GetStableHashCode();
         private static readonly Collider[] Overlap = new Collider[64];
         private static readonly Dictionary<string, Vector2[]> GridCache = new Dictionary<string, Vector2[]>();
         private static int _spaceMask = -1;
@@ -30,6 +31,8 @@ namespace AutoFarmPost
         private readonly List<string> _seedNames = new List<string>();
         private readonly List<GameObject> _usableSeeds = new List<GameObject>();
         private readonly Dictionary<string, float> _splitCredit = new Dictionary<string, float>();
+        private readonly List<Container> _chests = new List<Container>();
+        private readonly List<ItemDrop.ItemData> _stacks = new List<ItemDrop.ItemData>();
 
         private ZNetView _nview;
         private Container _container;
@@ -40,12 +43,25 @@ namespace AutoFarmPost
         private float _minGrowRadius = 0.5f;
         private bool _outputFull;
         private bool _noSeeds;
+        private int _mythicFound = -1;
+
+        /// <summary>A real, networked post - not a build preview.</summary>
+        public bool IsLive
+        {
+            get { return _nview != null && _nview.IsValid(); }
+        }
 
         private void Awake()
         {
             _nview = GetComponent<ZNetView>();
             _container = GetComponent<Container>();
             _timer = UnityEngine.Random.Range(0f, 2f);
+            FarmPostRegistry.Add(this);
+        }
+
+        private void OnDestroy()
+        {
+            FarmPostRegistry.Remove(this);
         }
 
         private void Update()
@@ -93,6 +109,13 @@ namespace AutoFarmPost
             GetRows(inv, out seedY0, out seedY1, out outY0, out outY1);
 
             _outputFull = false;
+
+            // first make room and restock from the chests around us, then farm
+            if (ModConfig.UseChests.Value)
+            {
+                Logistics(inv, seedY0, seedY1, outY0, outY1);
+            }
+
             PrepareSeeds(inv, seedY0, seedY1);
 
             int harvested = Harvest(inv, seedY0, seedY1, outY0, outY1);
@@ -246,9 +269,268 @@ namespace AutoFarmPost
 
                 PickableUtil.Pick(pickable, nview);
                 count++;
+
+                if (ModConfig.MythicEnabled.Value)
+                {
+                    TryMythicFind(inv, seedY0, seedY1, outY0, outY1, pickable.transform.position);
+                }
             }
 
             return count;
+        }
+
+        /// <summary>
+        ///     Chests around the post: the harvest is moved out so the post never clogs up, and
+        ///     the seed rows are restocked. With a chest next to it the post needs no hand work
+        ///     at all.
+        /// </summary>
+        private void Logistics(Inventory inv, int seedY0, int seedY1, int outY0, int outY1)
+        {
+            _chests.Clear();
+            ContainerRegistry.CollectNear(transform.position, ModConfig.ChestRadius.Value, _chests);
+            if (_chests.Count == 0)
+            {
+                return;
+            }
+
+            int budget = Mathf.Max(1, ModConfig.MaxTransferPerTick.Value);
+
+            if (ModConfig.PushHarvestToChests.Value)
+            {
+                budget -= PushHarvest(inv, outY0, outY1, budget);
+            }
+
+            if (budget > 0 && ModConfig.PullSeedsFromChests.Value)
+            {
+                PullSeeds(inv, seedY0, seedY1, budget);
+            }
+        }
+
+        private int PushHarvest(Inventory inv, int outY0, int outY1, int budget)
+        {
+            float threshold = Mathf.Clamp01(ModConfig.PushThresholdPercent.Value / 100f);
+            if (InventoryUtils.Fullness(inv, outY0, outY1) < threshold)
+            {
+                return 0;
+            }
+
+            _stacks.Clear();
+            InventoryUtils.CollectItems(inv, outY0, outY1, _stacks);
+
+            int moved = 0;
+
+            // from the last slots backwards, so the first rows keep showing the latest harvest
+            for (int i = _stacks.Count - 1; i >= 0 && moved < budget; i--)
+            {
+                ItemDrop.ItemData item = _stacks[i];
+
+                // first into a chest that already holds this item, then into any chest
+                for (int pass = 0; pass < 2 && moved < budget && item.m_stack > 0; pass++)
+                {
+                    for (int c = 0; c < _chests.Count && moved < budget && item.m_stack > 0; c++)
+                    {
+                        Container chest = _chests[c];
+                        Inventory target = Claim(chest);
+                        if (target == null)
+                        {
+                            continue;
+                        }
+
+                        bool known = InventoryUtils.CountItem(target, item.m_shared.m_name, 0,
+                                         target.GetHeight() - 1) > 0;
+                        bool wantKnown = pass == 0;
+                        if (known != wantKnown)
+                        {
+                            continue;
+                        }
+
+                        int n = InventoryUtils.Transfer(inv, item, target, 0, target.GetHeight() - 1,
+                            budget - moved);
+                        if (n > 0)
+                        {
+                            moved += n;
+                            Util.SaveContainer(chest);
+                        }
+                    }
+                }
+            }
+
+            return moved;
+        }
+
+        private int PullSeeds(Inventory inv, int seedY0, int seedY1, int budget)
+        {
+            // crops we are already using as seed - those may be restocked as well
+            _seedNames.Clear();
+            InventoryUtils.CollectItemNames(inv, seedY0, seedY1, _seedNames);
+
+            int moved = 0;
+
+            for (int c = 0; c < _chests.Count && moved < budget; c++)
+            {
+                Container chest = _chests[c];
+                Inventory source = Claim(chest);
+                if (source == null)
+                {
+                    continue;
+                }
+
+                _stacks.Clear();
+                InventoryUtils.CollectItems(source, 0, source.GetHeight() - 1, _stacks);
+
+                for (int i = 0; i < _stacks.Count && moved < budget; i++)
+                {
+                    ItemDrop.ItemData item = _stacks[i];
+                    if (item.m_shared == null)
+                    {
+                        continue;
+                    }
+
+                    string name = item.m_shared.m_name;
+                    if (!FarmData.IsPlantableName(name))
+                    {
+                        continue;
+                    }
+
+                    if (!FarmData.IsSeedName(name))
+                    {
+                        // a plain vegetable is only taken when the post already plants it,
+                        // otherwise it would empty the food storage into the field
+                        if (ModConfig.PullOnlySeedItems.Value || !_seedNames.Contains(name))
+                        {
+                            continue;
+                        }
+                    }
+
+                    // keep a modest stock only, or the post would drag the whole storage into the field
+                    int have = InventoryUtils.CountItem(inv, name, seedY0, seedY1);
+                    int want = ModConfig.SeedStockTarget.Value - have;
+                    if (want <= 0)
+                    {
+                        continue;
+                    }
+
+                    int n = InventoryUtils.Transfer(source, item, inv, seedY0, seedY1,
+                        Mathf.Min(budget - moved, want));
+                    if (n > 0)
+                    {
+                        moved += n;
+                        Util.SaveContainer(chest);
+                    }
+                }
+            }
+
+            return moved;
+        }
+
+        private static Inventory Claim(Container chest)
+        {
+            if (chest == null)
+            {
+                return null;
+            }
+
+            ZNetView nview = chest.GetComponent<ZNetView>();
+            if (nview == null || !nview.IsValid())
+            {
+                return null;
+            }
+
+            if (!nview.IsOwner())
+            {
+                nview.ClaimOwnership();
+            }
+
+            return chest.GetInventory();
+        }
+
+        /// <summary>
+        ///     The rare find. Rolled once per harvested plant; the fruit goes into the harvest
+        ///     rows, or into the seed rows if those are full.
+        /// </summary>
+        private void TryMythicFind(Inventory inv, int seedY0, int seedY1, int outY0, int outY1, Vector3 where)
+        {
+            GameObject prefab = MythicFruit.Prefab;
+            if (prefab == null || ModConfig.MythicChance.Value <= 0f)
+            {
+                return;
+            }
+
+            if (UnityEngine.Random.Range(0f, 100f) > ModConfig.MythicChance.Value)
+            {
+                return;
+            }
+
+            int stored = InventoryUtils.Store(inv, prefab, 1, outY0, outY1);
+            if (stored <= 0)
+            {
+                stored = InventoryUtils.Store(inv, prefab, 1, seedY0, seedY1);
+            }
+
+            if (stored <= 0)
+            {
+                return;
+            }
+
+            if (_mythicFound < 0)
+            {
+                _mythicFound = ReadMythicCount();
+            }
+
+            _mythicFound++;
+            WriteMythicCount(_mythicFound);
+            Announce(where);
+        }
+
+        private static void Announce(Vector3 where)
+        {
+            try
+            {
+                Player player = Player.m_localPlayer;
+                if (player == null || (player.transform.position - where).sqrMagnitude > 900f)
+                {
+                    return;
+                }
+
+                MessageHud hud = MessageHud.instance;
+                if (hud != null)
+                {
+                    hud.ShowMessage(MessageHud.MessageType.TopLeft, Util.Localize("$msg_autofarm_mythic"));
+                }
+            }
+            catch (Exception)
+            {
+                // feedback is optional
+            }
+        }
+
+        private int ReadMythicCount()
+        {
+            try
+            {
+                ZDO zdo = _nview.GetZDO();
+                return zdo != null ? zdo.GetInt(MythicKey, 0) : 0;
+            }
+            catch (Exception)
+            {
+                return 0;
+            }
+        }
+
+        private void WriteMythicCount(int value)
+        {
+            try
+            {
+                ZDO zdo = _nview.GetZDO();
+                if (zdo != null)
+                {
+                    zdo.Set(MythicKey, value);
+                }
+            }
+            catch (Exception)
+            {
+                // not worth a log line
+            }
         }
 
         /// <summary>
@@ -350,7 +632,8 @@ namespace AutoFarmPost
 
             Vector3 center = transform.position;
             float radius = ModConfig.PlantRadius.Value;
-            Vector2[] offsets = GetOffsets(radius, Mathf.Max(0.5f, ModConfig.PlantSpacing.Value));
+            Vector2[] offsets = GetOffsets(radius, Mathf.Max(0.5f, ModConfig.PlantSpacing.Value),
+                ModConfig.Pattern.Value);
             int max = ModConfig.MaxPlantPerTick.Value;
             int planted = 0;
 
@@ -514,9 +797,14 @@ namespace AutoFarmPost
             return true;
         }
 
-        private static Vector2[] GetOffsets(float radius, float spacing)
+        /// <summary>
+        ///     Spots to try, closest first. Hex packing offsets every other row by half a step
+        ///     and moves the rows closer together, which fits about 15% more plants into the same
+        ///     field while keeping the same distance between neighbours.
+        /// </summary>
+        private static Vector2[] GetOffsets(float radius, float spacing, PlantPattern pattern)
         {
-            string key = radius.ToString("0.##") + "/" + spacing.ToString("0.##");
+            string key = radius.ToString("0.##") + "/" + spacing.ToString("0.##") + "/" + pattern;
 
             Vector2[] cached;
             if (GridCache.TryGetValue(key, out cached))
@@ -525,13 +813,18 @@ namespace AutoFarmPost
             }
 
             List<Vector2> points = new List<Vector2>();
-            int steps = Mathf.Max(1, Mathf.CeilToInt(radius / spacing));
+            float rowStep = pattern == PlantPattern.Hex ? spacing * 0.8660254f : spacing;
+            int rows = Mathf.Max(1, Mathf.CeilToInt(radius / rowStep));
+            int cols = Mathf.Max(1, Mathf.CeilToInt(radius / spacing) + 1);
 
-            for (int ix = -steps; ix <= steps; ix++)
+            for (int iz = -rows; iz <= rows; iz++)
             {
-                for (int iz = -steps; iz <= steps; iz++)
+                float z = iz * rowStep;
+                float shift = pattern == PlantPattern.Hex && (iz & 1) != 0 ? spacing * 0.5f : 0f;
+
+                for (int ix = -cols; ix <= cols; ix++)
                 {
-                    Vector2 offset = new Vector2(ix * spacing, iz * spacing);
+                    Vector2 offset = new Vector2(ix * spacing + shift, z);
                     if (offset.magnitude <= radius)
                     {
                         points.Add(offset);
@@ -569,6 +862,16 @@ namespace AutoFarmPost
                 else if (_noSeeds)
                 {
                     text += "\n" + Util.Localize("$autofarm_hover_noseeds");
+                }
+
+                if (_mythicFound < 0)
+                {
+                    _mythicFound = ReadMythicCount();
+                }
+
+                if (_mythicFound > 0)
+                {
+                    text += "\n" + string.Format(Util.Localize("$autofarm_hover_mythic"), _mythicFound);
                 }
 
                 return text;

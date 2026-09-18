@@ -16,7 +16,7 @@ namespace AutoFarmPost
     {
         public const string PluginGuid = "com.oulassevich.autofarmpost";
         public const string PluginName = "AutoFarmPost";
-        public const string PluginVersion = "1.3.0";
+        public const string PluginVersion = "1.4.0";
 
         internal static ManualLogSource Log;
 
@@ -36,7 +36,13 @@ namespace AutoFarmPost
                 PickableRegistry.UseFallback = true;
             }
 
-            // Pure cosmetics - never let them break the mod.
+            if (!TryPatch(typeof(ContainerPatches), "container-registry"))
+            {
+                ContainerRegistry.UseFallback = true;
+            }
+
+            // Optional features - never let them break the mod.
+            TryPatch(typeof(ScarecrowPatches), "scarecrow");
             TryPatch(typeof(HoverPatches), "hover-text");
 
             FarmPostPiece.Register();

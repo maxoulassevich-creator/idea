@@ -61,6 +61,34 @@ namespace AutoFarmPost
         ///     does not matter which game assembly the class lives in; if it cannot be found the
         ///     raw token is shown instead.
         /// </summary>
+        private static MethodInfo _containerInUse;
+        private static bool _containerInUseChecked;
+
+        /// <summary>True when a player has this container open. Reached by name, so a missing
+        /// method simply means "not in use" instead of breaking anything.</summary>
+        public static bool IsContainerInUse(Container container)
+        {
+            if (!_containerInUseChecked)
+            {
+                _containerInUseChecked = true;
+                _containerInUse = AccessTools.Method(typeof(Container), "IsInUse", new Type[0]);
+            }
+
+            if (_containerInUse == null)
+            {
+                return false;
+            }
+
+            try
+            {
+                return (bool)_containerInUse.Invoke(container, null);
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
         public static string Localize(string token)
         {
             try
