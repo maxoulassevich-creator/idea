@@ -224,7 +224,8 @@ namespace AutoFarmPost
         {
             try
             {
-                return EnvMan.instance != null && EnvMan.instance.IsNight();
+                // static in current versions of the game
+                return EnvMan.instance != null && EnvMan.IsNight();
             }
             catch (Exception)
             {
