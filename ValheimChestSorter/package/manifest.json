@@ -1,0 +1,7 @@
+{
+  "name": "ChestSorter",
+  "version_number": "1.0.0",
+  "website_url": "",
+  "description": "Sorts your whole storage room: every chest gets one kind of goods, overflow spills into the next chest, and chests get visible labels.",
+  "dependencies": []
+}
