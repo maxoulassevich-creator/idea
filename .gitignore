@@ -1,0 +1,10 @@
+# Python virtualenvs / caches (scripts/detection, scripts/style)
+.venv/
+__pycache__/
+
+# Temporary work files (Claude-Book workflow)
+.work/
+
+# Source books for analysis and drafts
+analysis/src/*
+story/drafts/*

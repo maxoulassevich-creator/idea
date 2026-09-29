@@ -1,0 +1,4 @@
+# Third-party skills
+
+- `.claude/skills/{book-analyzer,bible-merger,story-ideator,perplexity-improver}`, the `chapter-*`, `character-reviewer`, `continuity-reviewer`, `state-updater`, `style-linter` agents, `scripts/`, `bible/` templates — from [ThomasHoussin/Claude-Book](https://github.com/ThomasHoussin/Claude-Book) @ 3fdebbb, MIT (`Claude-Book.LICENSE`).
+- `.claude/skills/novel-*`, `.claude/commands/novel.md`, the `character-developer`, `consistency-checker`, `copy-editor`, `developmental-editor`, `line-editor`, `novel-writing-assistant`, `plot-analyzer` agents — from [mrskwiw/claude-novel-writer](https://github.com/mrskwiw/claude-novel-writer) @ 8307d47 (`project/`), MIT (`claude-novel-writer.LICENSE`). Skills converted from flat `.md` to `<name>/SKILL.md`; agent `name:` fields converted to kebab-case. Requires the CLI: `npm install -g claude-novel-writer`.
