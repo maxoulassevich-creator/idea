@@ -1,0 +1,19 @@
+name: Следствие Ла Рокки
+type: subplot
+status: planned
+priority: 7
+description: |
+  Делегат расследует смерти вокруг барона. Поверит ли он в невозможное?
+beats:
+  - scene: "Глава 4"
+    description: Смерть покупателя амулета; барон под подозрением.
+    type: setup
+  - scene: "Глава 18"
+    description: Ла Рокка задерживает Андреа.
+    type: development
+  - scene: "Глава 20"
+    description: Видит своими глазами и переходит на сторону Андреа.
+    type: climax
+  - scene: "Глава 23"
+    description: Уносит тайну, которую некому рассказать, — первый контакт с государством.
+    type: resolution

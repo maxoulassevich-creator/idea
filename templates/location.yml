@@ -1,0 +1,33 @@
+# Location Template  (schema: LocationYAML)
+# Copy this file into your project's locations/ directory, rename it
+# (e.g. locations/palais-royal.yml), edit the values, then run:
+#   novel-writer sync all
+# The sync layer parses these exact keys — keep them spelled as-is.
+
+name: Location Name               # REQUIRED. The name used in the manuscript.
+type: city                        # Optional. Free text, e.g. city | building | region | room | landmark.
+parentLocation: Containing Place  # Optional. Name of the larger place this sits inside (e.g. a city for a building).
+description: |                    # REQUIRED. What this place is and how it feels.
+  A paragraph describing the location: its mood, scale, and role in the story.
+  What does it look, sound, and smell like? Why does it matter?
+
+# Details (optional) — a flat map of string: string. Concrete facts to keep consistent.
+details:
+  atmosphere: "value"
+  architecture: "value"
+  notableFeatures: "value"
+  population: "value"
+  # Add any other detail you reference in prose.
+
+# Rules (optional) — a list of constraints or facts that are always true here.
+rules:
+  - A constraint that always holds in this place.
+  - Another standing rule (access, danger, custom, etc.).
+
+firstAppearance: "Chapter 1"      # Optional. Where this location first appears (free text).
+
+# Additional Notes (optional) — free text.
+notes: |
+  - Sensory anchors to reuse for consistency
+  - Historical or research notes
+  - Author reminders

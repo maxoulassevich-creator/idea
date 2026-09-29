@@ -1,0 +1,87 @@
+events:
+  - name: Основание Флоренции и мундуса
+    type: world_history
+    description: Римская колония Флоренция; у форума закладывают мундус.
+    storyDate: "около 59 до н. э. [проверить]"
+    storyTimestamp: 100
+    isBackstory: true
+    importance: 7
+  - name: Истребление магов
+    type: world_history
+    description: Инквизиционные комиссии уничтожают магов; из них вырастает Братство Хранителей.
+    storyDate: "XV–XVII вв."
+    storyTimestamp: 200
+    isBackstory: true
+    importance: 8
+  - name: Постройка музея-крышки
+    type: backstory
+    description: Козимо Тарди по поручению Ордена строит храм-музей над мундусом и пишет завещание с условием.
+    storyDate: "1790-е"
+    storyTimestamp: 300
+    isBackstory: true
+    importance: 9
+  - name: Изъятие Эвелин и крах Тарди
+    type: backstory
+    description: Эвелин «умирает от лихорадки»; финансовый крах Флоренции; отец разорён.
+    storyDate: "1878"
+    storyTimestamp: 400
+    isBackstory: true
+    importance: 9
+  - name: Смерть отца
+    type: backstory
+    storyDate: "1882"
+    storyTimestamp: 450
+    isBackstory: true
+    importance: 5
+  - name: Ночь Лемурий и пробуждение дара
+    type: plot
+    description: Раскоп у Старого рынка, первая карточка.
+    storyDate: "1889-05-09"
+    storyTimestamp: 1000
+    sceneReference: "Глава 1"
+    importance: 10
+    happensBefore:
+      - Смерть покупателя амулета
+  - name: Смерть покупателя амулета
+    type: plot
+    storyDate: "1889-05"
+    storyTimestamp: 1100
+    sceneReference: "Глава 4"
+    importance: 7
+  - name: Стрига в Ольтрарно
+    type: plot
+    storyDate: "1889-06"
+    storyTimestamp: 1200
+    sceneReference: "Главы 7–9"
+    importance: 7
+  - name: Тайник прадеда
+    type: plot
+    storyDate: "1889-07"
+    storyTimestamp: 1300
+    sceneReference: "Глава 10"
+    importance: 9
+  - name: Разоблачение Ордуэя
+    type: plot
+    storyDate: "1889-08-24"
+    storyTimestamp: 1400
+    sceneReference: "Глава 12"
+    importance: 9
+  - name: Мундус приоткрыт
+    type: plot
+    storyDate: "1889-10-05"
+    storyTimestamp: 1500
+    sceneReference: "Глава 16"
+    importance: 8
+  - name: Ночь мундуса
+    type: plot
+    description: Схватка за камень основания; Агата сносит улицу.
+    storyDate: "1889-11-08"
+    storyTimestamp: 1600
+    sceneReference: "Главы 21–22"
+    importance: 10
+  - name: Посвящение в Ученики
+    type: plot
+    storyDate: "1889-11"
+    storyTimestamp: 1700
+    sceneReference: "Глава 24"
+    importance: 9

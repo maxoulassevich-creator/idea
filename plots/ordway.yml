@@ -1,0 +1,23 @@
+name: Покровитель
+type: subplot
+status: planned
+priority: 9
+description: |
+  Меценат Ордуэй помогает Андреа, но на самом деле хочет открыть мундус и стать магом. Когда его маска упадёт
+  и что он успеет забрать?
+beats:
+  - scene: "Глава 2"
+    description: Ордуэй предлагает помочь спасти музей.
+    type: setup
+  - scene: "Глава 12"
+    description: Середина тома — Ордуэй сбрасывает маску и знает, кто Андреа.
+    type: development
+  - scene: "Глава 22"
+    description: Ранен, бежит с осколком камня основания.
+    type: climax
+  - scene: "Глава 24"
+    description: Исчез по дороге в Лондон — крючок цикла.
+    type: resolution
+characters:
+  - name: Ордуэй
+    role: antagonist

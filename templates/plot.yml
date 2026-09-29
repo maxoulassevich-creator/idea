@@ -1,0 +1,55 @@
+# Plot Thread Template  (schema: PlotYAML)
+# Copy this file into your project's plots/ directory, rename it
+# (e.g. plots/the-hidden-door.yml), edit the values, then run:
+#   novel-writer sync all
+# The sync layer parses these exact keys — keep them spelled as-is.
+
+name: Plot Thread Name            # REQUIRED. The name used to refer to this thread.
+type: main                        # REQUIRED. One of: main | subplot | character | theme
+status: planned                   # REQUIRED. One of: planned | active | resolved | abandoned
+priority: 8                       # REQUIRED. Integer 1-10 (10 = highest narrative priority).
+description: |                    # REQUIRED. What this thread is about and what is at stake.
+  A paragraph describing the dramatic question of this thread.
+  What does the reader want to know, and what is at risk?
+
+# Beats (optional) — ordered story moments. Each beat: { scene, description, type }.
+beats:
+  - scene: "Chapter 1, Scene 3"   # Free-text reference to where the beat lands.
+    description: The inciting moment that opens the thread.
+    type: setup                   # One of: setup | development | climax | resolution
+  - scene: "Chapter 5"
+    description: The complication that raises the stakes.
+    type: development
+  - scene: "Chapter 12"
+    description: The confrontation everything has been building toward.
+    type: climax
+  - scene: "Chapter 13"
+    description: How the thread is paid off and resolved.
+    type: resolution
+
+# Characters (optional) — who drives or is changed by this thread. Each: { name, role, arc? }.
+characters:
+  - name: Character Name
+    role: protagonist             # Free text: this character's role within THIS thread.
+    arc: How this thread changes them.   # Optional.
+  - name: Another Character
+    role: antagonist
+
+# Themes (optional) — a list of thematic ideas this thread explores.
+themes:
+  - Secrecy and exposure
+  - Inherited power
+
+# Dependencies (optional) — names of other plot threads that must advance first.
+dependencies:
+  - Name of a prerequisite plot thread
+
+# Chapter anchors (optional) — integers naming the chapter numbers.
+introduced_in: 1                  # Optional. Chapter number where the thread is introduced.
+resolved_in: 13                   # Optional. Chapter number where the thread resolves.
+first_appearance: "Chapter 1, Scene 3"  # Optional. Free-text first-appearance reference.
+
+# Additional Notes (optional) — free text.
+notes: |
+  - Author reminders about pacing or payoff
+  - Open questions still to answer

@@ -1,0 +1,80 @@
+# Character Profile Template  (schema: CharacterYAML)
+# Copy this file into your project's characters/ directory, rename it
+# (e.g. characters/ada-vex.yml), edit the values, then run:
+#   novel-writer sync all
+# The sync layer parses these exact keys — keep them spelled as-is.
+
+name: Character Name              # REQUIRED. Short name used everywhere in the manuscript.
+fullName: Full Legal Name         # Optional. Formal/legal name if different from `name`.
+role: protagonist                 # REQUIRED. One of: protagonist | antagonist | major | minor | background
+summary: |                        # REQUIRED. One-paragraph essence of who this character is.
+  A one-paragraph summary of who this character is.
+  What makes them unique? What is their core want and core wound?
+
+# Physical Attributes (optional) — a flat map of string: string.
+# Track anything you mention in the manuscript so consistency checks can catch drift.
+physical:
+  age: "value"
+  eyeColor: "value"
+  hairColor: "value"
+  height: "value"
+  build: "value"
+  distinctiveFeatures: "value"
+  # Add any other physical trait you reference in prose.
+
+# Personality Traits (optional) — a flat map of string: string.
+personality:
+  core: "value"
+  strengths: "value"
+  flaws: "value"
+  fears: "value"
+  desires: "value"
+
+# Background Information (optional) — a flat map of string: string.
+background:
+  occupation: "value"
+  education: "value"
+  family: "value"
+  hometown: "value"
+  significantEvents: "value"
+
+# Skills & Abilities (optional) — a flat map of string: string.
+skills:
+  primarySkill: "value"
+  secondarySkill: "value"
+
+# Voice & Speech (optional) — critical for dialogue consistency.
+voice:
+  patterns:                       # Optional list of recurring speech patterns.
+    - How they phrase requests
+    - Sentence rhythm or length
+  quirks:                         # Optional list of verbal tics / catchphrases.
+    - A repeated catchphrase
+    - A gesture they make when speaking
+  vocabulary: |                   # Optional free-text note on word choice.
+    Formal or informal? Technical or plain? Regional dialect or era-specific slang?
+
+# Relationships (optional) — array of { character, type, description }.
+relationships:
+  - character: Other Character Name
+    type: friend                  # friend | enemy | family | romantic | mentor | rival | ...
+    description: How they relate, and the history between them.
+
+  - character: Another Character
+    type: rival
+    description: The competitive dynamic between them.
+
+# Character Arc (optional). If present, startingState and endingState are required.
+arc:
+  startingState: |                # Who they are at the beginning — beliefs, situation.
+    Internal state and circumstances at page one.
+  endingState: |                  # Who they have become by the end.
+    How they have changed or refused to change.
+  midpointCrisis: |               # Optional. The turning point that forces the change.
+    The challenge that breaks their old way of being.
+
+# Additional Notes (optional) — free text for anything else.
+notes: |
+  - Important plot connections
+  - Themes this character embodies
+  - Author reminders and research notes

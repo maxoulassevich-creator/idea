@@ -1,0 +1,38 @@
+# style-targets.yml — quantitative prose targets for the deterministic analyzers.
+#
+# These numbers drive `novel-writer analyze style`. Tune them to YOUR voice;
+# the defaults below suit general literary fiction. Each entry is a band:
+#   { min: <n> }            floor only
+#   { max: <n> }            ceiling only
+#   { min: <n>, max: <n> }  both
+# Delete a line to disable that check. Set a value to null to disable too.
+#
+# (Qualitative voice guidance — motifs, coded language, themes — lives in the
+#  prose STYLE_GUIDE.md files, which the AI editor agents consult separately.)
+
+# Sentence length, in words. Long-sentence styles raise these; punchy styles lower them.
+meanSentenceWords: { min: 12, max: 25 }
+
+# Modifier density, per 1000 words.
+adjectivesPer1000: { min: 8, max: 25 }   # gothic/lush prose runs high (20-28); spare prose low
+adverbsPer1000: { max: 10 }              # most style guides push this down (3-5 is tight)
+
+# Voice.
+passivePercent: { max: 10 }              # % of sentences in passive voice
+filterWordsPer1000: { max: 12 }          # "saw", "felt", "noticed", "realized"…
+showingPercent: { min: 70 }              # showing as % of show+tell cues (85 = show-heavy)
+
+# Sensory coverage — distinct senses (of 5) present in a chapter.
+sensesPerChapter: { min: 3 }             # raise to 5 to require full sensory layering
+
+# Punctuation cadence, per chapter.
+emDashesPerChapter: { max: 20 }
+semicolonsPerChapter: { max: 15 }
+ellipsesPerChapter: { max: 8 }
+
+# Structure, per chapter.
+fragmentsPerChapter: { max: 6 }                  # intentional fragments (heuristic)
+singleSentenceParagraphsPerChapter: { max: 10 }
+
+# Narrative tense — the copy editor flags drift from this.
+tense: past

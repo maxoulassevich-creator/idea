@@ -1,0 +1,16 @@
+name: Дело о бронзовом амулете
+type: subplot
+status: planned
+priority: 6
+description: |
+  Антиквар просит оценить амулет с карточкой «Угроза: высокая». Андреа отказывается, покупателя находят мёртвым.
+beats:
+  - scene: "Глава 3"
+    description: Экспертиза и отказ.
+    type: setup
+  - scene: "Глава 4"
+    description: Покупатель мёртв; появляется Ла Рокка.
+    type: development
+  - scene: "Глава 6"
+    description: Андреа находит амулет и прячет его в своём музее — первая вещь в каталоге.
+    type: resolution

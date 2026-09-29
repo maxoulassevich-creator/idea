@@ -1,0 +1,19 @@
+name: Стрига в Ольтрарно
+type: subplot
+status: planned
+priority: 7
+description: |
+  Ночная тварь приходит к младенцам в Сан-Фредиано. Андреа и Ракеле выслеживают её с помощью дара.
+beats:
+  - scene: "Глава 7"
+    description: Ракеле приходит к барону с рассказами о мёртвых младенцах.
+    type: setup
+  - scene: "Глава 8"
+    description: Охота по крышам; дальность дара растёт.
+    type: development
+  - scene: "Глава 9"
+    description: Стрига уничтожена; вывод — чудовищ выпускает снос.
+    type: resolution
+characters:
+  - name: Ракеле
+    role: ally

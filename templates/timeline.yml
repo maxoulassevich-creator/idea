@@ -1,0 +1,31 @@
+# Timeline Template  (schema: TimelineYAML)
+# Copy this file into your project's timeline/ directory, rename it
+# (e.g. timeline/main-timeline.yml), edit the values, then run:
+#   novel-writer sync all
+# The top-level key MUST be `events:` — the sync layer reads that array.
+
+events:
+  # ── Event 1 ───────────────────────────────────────────────────────────────
+  - name: The Sealing of the Cellar Door   # REQUIRED. Unique name (also used to link events).
+    type: backstory                 # Optional. One of: plot | backstory | world_history
+    description: |                  # Optional. What happens at this event.
+      Decades before the story opens, the hidden passage is sealed behind the wine racks.
+    storyDate: "1772-06-15"         # Optional. Human-readable date (free text, e.g. "1772-06-15").
+    storyTimestamp: 1000            # Optional NUMBER used only for ordering events (lower = earlier).
+    sceneReference: "Backstory"     # Optional. Scene name/identifier this event ties to.
+    isBackstory: true               # Optional boolean. true if it happens before the narrative present.
+    importance: 6                   # Optional integer 1-10 (10 = most important).
+    happensBefore:                  # Optional. Names of events that must occur AFTER this one.
+      - The Discovery of the Hidden Door   # Creates an ordering edge: sealing → discovery.
+
+  # ── Event 2 ───────────────────────────────────────────────────────────────
+  - name: The Discovery of the Hidden Door
+    type: plot
+    description: |
+      Émilie goes to the cellar for wine and finds the sealed passage behind the racks.
+    storyDate: "1791-11-01"
+    storyTimestamp: 2000            # Higher than Event 1, so it sorts later on the timeline.
+    sceneReference: "Chapter 1, Scene 3"
+    isBackstory: false
+    importance: 9
+    # No happensBefore here — this event sits at the end of the chain shown above.

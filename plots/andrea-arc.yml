@@ -1,0 +1,22 @@
+name: Свой среди чужих
+type: character
+status: planned
+priority: 9
+description: |
+  Одиночка, цепляющийся за музей и титул, становится посвящённым Ордена, чтобы разрушить систему изнутри.
+beats:
+  - scene: "Глава 1"
+    description: Андреа сдаёт заказы под именем Беппе и никого не пускает в свою жизнь.
+    type: setup
+  - scene: "Глава 12"
+    description: Предательство покровителя.
+    type: development
+  - scene: "Глава 20"
+    description: Впервые просит помощи — у Ракеле, Беппе и Ла Рокки.
+    type: development
+  - scene: "Глава 24"
+    description: Посвящение в Ученики.
+    type: resolution
+characters:
+  - name: Андреа
+    role: protagonist

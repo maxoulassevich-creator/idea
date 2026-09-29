@@ -1,0 +1,24 @@
+name: Орден ищет находчика
+type: subplot
+status: planned
+priority: 8
+description: |
+  Флорентийский кабинет засекает новый «фон» в городе. Успеет ли Андреа понять, кто за ним охотится, раньше, чем его найдут?
+beats:
+  - scene: "Глава 13"
+    description: Детектор Ордена засекает Андреа после дела о Боттичелли.
+    type: setup
+  - scene: "Глава 17"
+    description: Сестра Агата идёт по следу.
+    type: development
+  - scene: "Глава 22"
+    description: Агата сносит улицу в ночь схватки.
+    type: climax
+  - scene: "Глава 23"
+    description: Тальяферри ставит выбор — служба или исчезновение.
+    type: resolution
+characters:
+  - name: Тальяферри
+    role: antagonist
+  - name: сестра Агата
+    role: hunter

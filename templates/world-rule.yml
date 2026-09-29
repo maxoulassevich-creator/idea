@@ -1,0 +1,38 @@
+# World Rule Template  (schema: WorldRuleYAML)
+# Copy this file into your project's world-rules/ directory, rename it
+# (e.g. world-rules/noble-blood-magic.yml), edit the values, then run:
+#   novel-writer sync all
+# The sync layer parses these exact keys — keep them spelled as-is.
+
+name: World Rule Name             # REQUIRED. The name of this rule or law of your world.
+category: magic                   # REQUIRED. One of: magic | technology | physics | social | political
+description: |                    # REQUIRED. State the rule plainly.
+  A clear statement of how this rule works and what it governs.
+  Be specific — the consistency checker flags hard rules that prose contradicts.
+
+limitations: |                    # Optional. The costs, boundaries, and failure modes.
+  What this rule cannot do. The price paid to use it. When it stops working.
+
+is_hard_rule: true                # Optional boolean. true = an unbreakable law (consistency
+                                  # checks expect it to be documented and never violated);
+                                  # false = a soft/flexible guideline.
+
+# Established in (optional) — where this rule is first shown on the page.
+established_in:
+  chapter: 1                      # Optional chapter number.
+  scene: "Chapter 1, Scene 3"     # Optional free-text scene reference.
+  quote: "A line of prose that demonstrates the rule in action."  # Optional.
+
+# Examples (optional) — moments that show the rule working as intended.
+examples:
+  - A scene where the rule visibly operates.
+  - Another concrete demonstration.
+
+# Exceptions (optional) — sanctioned cases where the rule bends or does not apply.
+exceptions:
+  - The one character or condition that defies the rule, and why.
+
+# Additional Notes (optional) — free text.
+notes: |
+  - Origin or in-world history of this rule
+  - Author reminders to keep usage consistent
