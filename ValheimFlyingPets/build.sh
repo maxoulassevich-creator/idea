@@ -6,7 +6,7 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-version="1.0.0"
+version="1.0.1"
 
 if ! command -v dotnet >/dev/null 2>&1; then
     echo "ERROR: .NET SDK not found. Install it from https://dotnet.microsoft.com/download" >&2
@@ -67,11 +67,9 @@ dll="$root/src/FlyingPets/bin/Release/FlyingPets.dll"
 rm -rf "$root/dist"
 mkdir -p "$root/dist/package"
 cp "$dll" "$root/dist/"
-cp -r "$root/pets" "$root/dist/"
 cp "$dll" "$root/package/manifest.json" "$root/package/icon.png" "$root/README.md" "$root/dist/package/"
-cp -r "$root/pets" "$root/dist/package/"
 (cd "$root/dist/package" && zip -qr "../FlyingPets-$version.zip" .)
 rm -rf "$root/dist/package"
 
-echo "Mod     : $root/dist/FlyingPets.dll (+ pets folder)"
+echo "Mod     : $root/dist/FlyingPets.dll"
 echo "Package : $root/dist/FlyingPets-$version.zip"

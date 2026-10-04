@@ -9,7 +9,7 @@
     <AssemblyName>FlyingPets</AssemblyName>
     <RootNamespace>FlyingPets</RootNamespace>
     <Product>FlyingPets</Product>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <LangVersion>7.3</LangVersion>
     <DebugType>none</DebugType>
     <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
@@ -52,6 +52,14 @@
     <Reference Include="$(LibsDir)\BepInEx.dll" Private="false" />
     <Reference Include="$(LibsDir)\0Harmony.dll" Private="false" />
     <Reference Include="$(LibsDir)\Jotunn.dll" Private="false" />
+  </ItemGroup>
+
+  <!-- The pets travel inside FlyingPets.dll: no extra folder to install, whatever the mod manager does
+       with sub-folders. Resource names: pets/<key>/<file>. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\pets\**\*.json;..\..\pets\**\*.vpet;..\..\pets\**\*.jpg;..\..\pets\**\*.png">
+      <LogicalName>pets/%(RecursiveDir)%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
   <!-- Optional: copy straight into a mod profile with -p:DeployPath="...\BepInEx\plugins" -->

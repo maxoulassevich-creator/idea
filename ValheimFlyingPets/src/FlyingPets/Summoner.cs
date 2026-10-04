@@ -103,7 +103,8 @@ namespace FlyingPets
 
             if (prefab == null)
             {
-                FlyingPetsPlugin.Log.LogError(asset.PrefabName + " is not registered");
+                FlyingPetsPlugin.Log.LogError(asset.PrefabName + " is not registered (see the errors above, while the game was starting)");
+                player.Message(MessageHud.MessageType.Center, Texts.Get("fp_msg_noprefab", asset.DisplayName));
                 return;
             }
 

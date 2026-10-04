@@ -18,7 +18,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
-$version = '1.0.0'
+$version = '1.0.1'
 $zipName = "FlyingPets-$version.zip"
 
 Write-Host ''
@@ -246,14 +246,12 @@ $dist = Join-Path $root 'dist'
 if (Test-Path $dist) { Remove-Item $dist -Recurse -Force }
 New-Item -ItemType Directory -Path $dist | Out-Null
 Copy-Item $dll $dist
-Copy-Item (Join-Path $root 'pets') $dist -Recurse
 
 # --- 6. Пакет для менеджера модов -----------------------------------------
 if (-not $NoPackage) {
     $staging = Join-Path $dist 'package'
     New-Item -ItemType Directory -Path $staging | Out-Null
     Copy-Item $dll $staging
-    Copy-Item (Join-Path $root 'pets') $staging -Recurse
     Copy-Item (Join-Path $root 'package\manifest.json') $staging
     Copy-Item (Join-Path $root 'package\icon.png') $staging
     Copy-Item (Join-Path $root 'README.md') $staging
@@ -272,18 +270,22 @@ if ($Install) {
         $target = Join-Path (Join-Path $profileDir 'BepInEx\plugins') 'FlyingPets'
         if (-not (Test-Path $target)) { New-Item -ItemType Directory -Path $target -Force | Out-Null }
         Copy-Item $dll $target -Force
-        # модели питомцев лежат рядом с dll, в папке pets
+        # питомцы теперь внутри dll; старая папка pets от версии 1.0.0 не нужна
         $petsTarget = Join-Path $target 'pets'
         if (Test-Path $petsTarget) { Remove-Item $petsTarget -Recurse -Force }
-        Copy-Item (Join-Path $root 'pets') $target -Recurse -Force
         $installedTo = $target
+        # вторая копия мода, поставленная через менеджер (Import local mod), не даст загрузиться этой
+        foreach ($dup in @(Get-ChildItem -LiteralPath (Join-Path $profileDir 'BepInEx\plugins') -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -like '*-FlyingPets' })) {
+            Write-Host "Внимание: в профиле есть ещё одна копия мода: $($dup.FullName)" -ForegroundColor Yellow
+            Write-Host '          Удалите её в менеджере модов (Uninstall), иначе BepInEx загрузит только одну из копий.' -ForegroundColor Yellow
+        }
     }
 }
 
 # --- 8. Итог ---------------------------------------------------------------
 Write-Host ''
 Write-Host 'ГОТОВО' -ForegroundColor Green
-Write-Host "  Мод   : $(Join-Path $dist 'FlyingPets.dll') (+ папка pets рядом)"
+Write-Host "  Мод   : $(Join-Path $dist 'FlyingPets.dll')"
 if (-not $NoPackage) { Write-Host "  Пакет : $(Join-Path $dist $zipName)" }
 if ($installedTo) {
     Write-Host "  Установлен в профиль: $installedTo" -ForegroundColor Green
