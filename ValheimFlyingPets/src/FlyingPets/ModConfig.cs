@@ -41,6 +41,11 @@ namespace FlyingPets
         public static ConfigEntry<string> StaffStation;
         public static ConfigEntry<int> StaffStationLevel;
         public static ConfigEntry<string> StaffBasePrefab;
+        public static ConfigEntry<bool> StaffOwnModel;
+        public static ConfigEntry<float> StaffScale;
+        public static ConfigEntry<float> StaffGripShift;
+        public static ConfigEntry<float> StaffRoll;
+        public static ConfigEntry<bool> StaffFlip;
 
         public static ConfigEntry<bool> EyeLight;
 
@@ -106,7 +111,17 @@ namespace FlyingPets
                 "Where the staff is crafted (piece_workbench, forge, piece_magetable, ... or empty for hand crafting).");
             StaffStationLevel = cfg.Bind(SecStaff, "StationLevel", 1, "Required crafting station level.");
             StaffBasePrefab = cfg.Bind(SecStaff, "BaseModel", "StaffIceShards",
-                "Vanilla item whose 3D model the staff borrows until it gets its own model.");
+                "Vanilla staff the item is made from: how it is held, its sounds, and its look when OwnModel is off. Needs a game restart.");
+            StaffOwnModel = cfg.Bind(SecStaff, "OwnModel", true,
+                "Use the staff's own model (Magic Staff by petersoon, CC BY 4.0) instead of the vanilla one. Needs a game restart.");
+            StaffScale = cfg.Bind(SecStaff, "ModelScale", 1f,
+                "Size of the staff's model compared with the vanilla staff it replaces. Needs a game restart.");
+            StaffGripShift = cfg.Bind(SecStaff, "ModelGripShift", 0f,
+                "Move the hand along the staff (a share of its length, e.g. 0.1 = the hand 10% higher up). Needs a game restart.");
+            StaffRoll = cfg.Bind(SecStaff, "ModelRoll", 0f,
+                "Turn the staff's model around its length, degrees. Needs a game restart.");
+            StaffFlip = cfg.Bind(SecStaff, "ModelUpsideDown", false,
+                "Turn the model end over end, if the game holds it upside down. Needs a game restart.");
 
             EyeLight = cfg.Bind(SecLooks, "EyeLight", true, "A faint light from the glowing eyes.");
 

@@ -19,7 +19,7 @@ namespace FlyingPets
     {
         public const string PluginGuid = "com.oulassevich.flyingpets";
         public const string PluginName = "FlyingPets";
-        public const string PluginVersion = "1.2.0";
+        public const string PluginVersion = "1.3.0";
 
         internal static ManualLogSource Log;
 

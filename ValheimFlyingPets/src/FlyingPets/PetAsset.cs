@@ -249,7 +249,7 @@ namespace FlyingPets
             return (bool)s_loadImage.Invoke(null, new object[] { tex, data, markNonReadable });
         }
 
-        private static Texture2D LoadTexture(byte[] bytes, string name, bool normalMap)
+        internal static Texture2D LoadTexture(byte[] bytes, string name, bool normalMap)
         {
             var tex = new Texture2D(2, 2, TextureFormat.RGBA32, true, normalMap);
             if (!LoadImage(tex, bytes, false))

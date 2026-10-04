@@ -9,7 +9,7 @@
     <AssemblyName>FlyingPets</AssemblyName>
     <RootNamespace>FlyingPets</RootNamespace>
     <Product>FlyingPets</Product>
-    <Version>1.2.0</Version>
+    <Version>1.3.0</Version>
     <LangVersion>7.3</LangVersion>
     <DebugType>none</DebugType>
     <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
@@ -60,7 +60,11 @@
     <EmbeddedResource Include="..\..\pets\**\*.json;..\..\pets\**\*.vpet;..\..\pets\**\*.jpg;..\..\pets\**\*.png">
       <LogicalName>pets/%(RecursiveDir)%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>
-    <!-- status effect icons of the abilities: icons/<name>.png -->
+    <!-- the staff's own model: staff/<file> -->
+    <EmbeddedResource Include="..\..\staff\*.json;..\..\staff\*.vpet;..\..\staff\*.jpg;..\..\staff\*.png">
+      <LogicalName>staff/%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+    <!-- status effect and item icons: icons/<name>.png -->
     <EmbeddedResource Include="..\..\icons\*.png">
       <LogicalName>icons/%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>

@@ -45,7 +45,14 @@ namespace FlyingPets
             };
 
             var item = new CustomItem(PrefabName, basePrefab, config);
+            StaffModel.Apply(item.ItemPrefab);
             var shared = item.ItemDrop.m_itemData.m_shared;
+            var icon = ModConfig.StaffOwnModel.Value ? AbilityEffects.Icon("staff") : null;
+            if (icon != null)
+            {
+                shared.m_icons = new[] { icon };
+            }
+
             shared.m_damages = new HitData.DamageTypes();
             shared.m_damagesPerLevel = new HitData.DamageTypes();
             shared.m_useDurability = false;
@@ -56,7 +63,7 @@ namespace FlyingPets
             Disarm(shared.m_attack);
             Disarm(shared.m_secondaryAttack);
             ItemManager.Instance.AddItem(item);
-            FlyingPetsPlugin.Log.LogInfo("Registered " + PrefabName + " (model of " + basePrefab + ")");
+            FlyingPetsPlugin.Log.LogInfo("Registered " + PrefabName + " (made from " + basePrefab + ")");
         }
 
         private static void Disarm(Attack attack)

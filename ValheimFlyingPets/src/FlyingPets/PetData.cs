@@ -327,6 +327,21 @@ namespace FlyingPets
             return data;
         }
 
+        /// <summary>Any small json object into the public fields of T (missing fields keep their defaults).</summary>
+        public static T ParseAs<T>(string text) where T : class
+        {
+            var r = new Reader(text);
+            object root = r.Value();
+            r.End();
+            var obj = root as Dictionary<string, object>;
+            if (obj == null)
+            {
+                throw new InvalidDataException("the json must be an object");
+            }
+
+            return (T)Fill(typeof(T), obj);
+        }
+
         private static object Fill(Type type, Dictionary<string, object> obj)
         {
             object target = Activator.CreateInstance(type);
