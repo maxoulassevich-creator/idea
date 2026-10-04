@@ -1,7 +1,7 @@
 {
   "name": "FlyingPets",
-  "version_number": "1.1.0",
+  "version_number": "1.2.0",
   "website_url": "",
-  "description": "Winged mounts you can ride and fly: a staff summons a pegasus or a giant raven that kneels, lifts you into the saddle with its wing and takes off.",
+  "description": "Winged mounts you can ride and fly: a staff summons a pegasus or a giant raven. Each has four passive powers and one active: the pegasus dives with a thunder hoof, the raven seizes creatures in its talons.",
   "dependencies": []
 }

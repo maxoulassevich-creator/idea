@@ -367,5 +367,12 @@
   3.3716,
   2.7721,
   -0.8252
+ ],
+ "abilities": [
+  "draft_horse",
+  "under_wing",
+  "valhalla_light",
+  "valkyrie_catch",
+  "thunder_hoof"
  ]
 }

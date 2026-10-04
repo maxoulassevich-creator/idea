@@ -5,7 +5,7 @@ namespace FlyingPets
     /// <summary>Animation, evaluated on every client from the networked state and the observed motion.</summary>
     public partial class FlyingPet
     {
-        private PetPose m_pIdle, m_pWalk, m_pFly, m_pGlide, m_pKneel, m_pGround, m_pOut;
+        private PetPose m_pIdle, m_pWalk, m_pFly, m_pGlide, m_pKneel, m_pGround, m_pOut, m_pSkill;
         private int[] m_allBones;
         private float m_t;
         private float m_gait;
@@ -17,6 +17,8 @@ namespace FlyingPets
         private float m_riderW;
         private float m_walkW;
         private float m_kneelW;
+        private float m_diveW;
+        private float m_holdW;
         private float m_animGroundY;
         private float m_probeTimer;
         private Vector3 m_lastPos;
@@ -32,6 +34,7 @@ namespace FlyingPets
             m_pKneel = new PetPose(n);
             m_pGround = new PetPose(n);
             m_pOut = new PetPose(n);
+            m_pSkill = new PetPose(n);
             m_allBones = new int[n];
             for (int i = 0; i < n; i++)
             {
@@ -55,6 +58,7 @@ namespace FlyingPets
             ObserveMotion(dt);
             Animate(dt);
             UpdateAnchor();
+            UpdatePrey(dt);
         }
 
         private void ObserveMotion(float dt)
@@ -104,6 +108,11 @@ namespace FlyingPets
                           !(m_seq == SeqDismount && m_seqTime >= TOff);
             m_riderW = Mathf.MoveTowards(m_riderW, aboard ? 1f : 0f, dt * 2f);
             m_walkW = Mathf.MoveTowards(m_walkW, air ? 0f : Mathf.Clamp01(Mathf.Abs(fwd) / 0.8f), dt * 4f);
+            int skill = SkillState;
+            m_diveW = Mathf.MoveTowards(m_diveW, air && skill == SkillDive ? 1f : 0f, dt * 4f);
+            m_holdW = Mathf.MoveTowards(m_holdW, air && skill == SkillHold ? 1f : 0f, dt * 3f);
+            // diving: hooves / talons forward; carrying: legs down around the prey
+            float legsOut = 1f - Mathf.Max(m_diveW * 0.8f, m_holdW);
 
             // ---- clocks: stride follows the ground speed, wing beats quicken when hovering or climbing
             float trot = Mathf.Clamp01((Mathf.Abs(fwd) - 3.6f) / 2.8f);
@@ -142,10 +151,21 @@ namespace FlyingPets
 
                 m_pOut.CopyFrom(m_pGround);
                 PetAnimator.Blend(m_pOut, m_pGround, m_pFly, m_airW, m_anim.Core);
-                PetAnimator.Blend(m_pOut, m_pGround, m_pFly, Mathf.Min(m_airW, m_legAirW), m_anim.Legs);
+                PetAnimator.Blend(m_pOut, m_pGround, m_pFly, Mathf.Min(m_airW, m_legAirW) * legsOut, m_anim.Legs);
                 PetAnimator.Blend(m_pOut, m_pGround, m_pFly, m_wingAirW, m_anim.WingBones[0]);
                 PetAnimator.Blend(m_pOut, m_pGround, m_pFly, m_wingAirW, m_anim.WingBones[1]);
                 m_pOut.Root = Vector3.Lerp(m_pGround.Root, m_pFly.Root, m_airW);
+
+                if (m_diveW > 0.001f)
+                {
+                    // the stoop: wings drawn in against the body
+                    m_pSkill.CopyFrom(m_pOut);
+                    m_anim.SetWing(m_pSkill, PetAnimator.Right, m_anim.Fold);
+                    m_anim.SetWing(m_pSkill, PetAnimator.Left, m_anim.Fold);
+                    float w = PetAnimator.Smooth(m_diveW) * 0.75f;
+                    PetAnimator.Blend(m_pOut, m_pOut, m_pSkill, w, m_anim.WingBones[0]);
+                    PetAnimator.Blend(m_pOut, m_pOut, m_pSkill, w, m_anim.WingBones[1]);
+                }
             }
             else
             {

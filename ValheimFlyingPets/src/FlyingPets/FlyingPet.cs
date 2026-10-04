@@ -129,6 +129,7 @@ namespace FlyingPets
             m_nview.Register<long>("FP_Release", RPC_Release);
             m_nview.Register("FP_Dismiss", RPC_Dismiss);
             m_nview.Register<long>("FP_Call", RPC_Call);
+            m_nview.Register<int, Vector3, Vector3>("FP_Fx", RPC_Fx);
 
             m_yaw = transform.eulerAngles.y;
             m_state = m_nview.GetZDO().GetInt(ZState, StateGround);
@@ -151,6 +152,11 @@ namespace FlyingPets
             if (m_localRider != null)
             {
                 ForceReleaseLocal(true);
+            }
+
+            if (m_prey != null)
+            {
+                ReleasePrey(false);
             }
         }
 
@@ -223,6 +229,7 @@ namespace FlyingPets
             var zdo = m_nview.GetZDO();
             m_netState = zdo.GetInt(ZState, StateGround);
             m_netRider = zdo.GetLong(ZRider, 0L);
+            m_netSkill = zdo.GetInt(ZSkill, SkillNone);
             int id = zdo.GetInt(ZSeqId, 0);
             if (id != m_seqId)
             {

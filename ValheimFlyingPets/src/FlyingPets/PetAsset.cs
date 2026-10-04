@@ -23,6 +23,7 @@ namespace FlyingPets
         public Vector3 EyeCenter;
         public bool HasEyes;
         public GameObject Prefab;
+        public HashSet<string> Abilities = new HashSet<string>();
 
         public string PrefabName
         {
@@ -58,6 +59,7 @@ namespace FlyingPets
         {
             var data = PetJsonReader.Parse(Encoding.UTF8.GetString(src.Read(src.Key + ".json")));
             var asset = new PetAsset { Key = src.Key, Origin = src.Origin, Data = data };
+            asset.Abilities = PetAbility.Read(src.Key, data.abilities);
             int nb = data.bones.Length;
             asset.BoneNames = new string[nb];
             asset.BoneParents = new int[nb];
@@ -286,6 +288,21 @@ namespace FlyingPets
                 FlyingPetsPlugin.Log.LogWarning("Texture " + name + ": post-processing skipped (" + e.Message + ")");
             }
 
+            return tex;
+        }
+
+        /// <summary>A small UI image (status effect icons): no mipmaps, no compression.</summary>
+        internal static Texture2D LoadIconTexture(byte[] bytes, string name)
+        {
+            var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            if (!LoadImage(tex, bytes, false))
+            {
+                throw new InvalidDataException("the image could not be decoded");
+            }
+
+            tex.name = name;
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.filterMode = FilterMode.Bilinear;
             return tex;
         }
 

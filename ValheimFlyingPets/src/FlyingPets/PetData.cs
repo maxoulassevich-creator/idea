@@ -78,6 +78,9 @@ namespace FlyingPets
         // optional
         public string nameEn;
         public string nameRu;
+
+        // passive and active abilities of this pet (ids from PetAbility)
+        public string[] abilities;
     }
 #pragma warning restore 0649
 

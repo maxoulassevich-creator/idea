@@ -121,6 +121,11 @@ namespace FlyingPets
                 }
             }
 
+            if (m_skill != SkillNone && (m_localRider == null || m_state != StateAir))
+            {
+                StopSkill();
+            }
+
             Controls c;
             if (m_state == StateKneel || m_seq != SeqNone)
             {
@@ -129,6 +134,10 @@ namespace FlyingPets
             else if (m_localRider != null && m_attachedLocal)
             {
                 c = RiderControls(alt);
+                if (m_skill == SkillDive)
+                {
+                    DiveControls(ref c);
+                }
             }
             else if (rider == 0L)
             {
@@ -455,11 +464,26 @@ namespace FlyingPets
                     climb = Mathf.Min(climb, 0f);
                 }
 
-                m_vyAir = Mathf.MoveTowards(m_vyAir, climb, 14f * dt);
+                m_vyAir = Mathf.MoveTowards(m_vyAir, climb, (m_skill == SkillDive ? 40f : 14f) * dt);
                 float minAlt = landing || climb < -0.5f ? 0f : 0.6f * m_scale;
+                if (m_skill == SkillHold)
+                {
+                    // the prey hangs below: keep it off the ground, and set it down when the rider wants to land
+                    minAlt = Mathf.Max(minAlt, m_preyTop + 0.5f);
+                    if ((landing || c.Climb < -0.5f) && alt < m_preyTop + 1.3f)
+                    {
+                        ReleasePrey(true); // brought down to the ground: set it down gently
+                    }
+                }
+
                 if (alt < minAlt)
                 {
                     m_vyAir = Mathf.Max(m_vyAir, (minAlt - alt) * 6f);
+                }
+
+                if (m_skill == SkillDive)
+                {
+                    DiveStep(dt, pos, alt, overWater ? waterY : groundY, overWater);
                 }
 
                 if (overWater)
@@ -488,8 +512,9 @@ namespace FlyingPets
                     DropRiderNow();
                 }
 
-                float pitchT = Mathf.Clamp(-Mathf.Atan2(m_vyAir, Mathf.Max(Mathf.Abs(m_speed), 5f)) * Mathf.Rad2Deg * 0.7f, -24f, 24f);
-                m_pitch = Mathf.MoveTowards(m_pitch, pitchT, 45f * dt);
+                float pitchMax = m_skill == SkillDive ? 50f : 24f;
+                float pitchT = Mathf.Clamp(-Mathf.Atan2(m_vyAir, Mathf.Max(Mathf.Abs(m_speed), 5f)) * Mathf.Rad2Deg * 0.7f, -pitchMax, pitchMax);
+                m_pitch = Mathf.MoveTowards(m_pitch, pitchT, (m_skill == SkillDive ? 90f : 45f) * dt);
                 float rollT = Mathf.Clamp(-yawRate * 0.28f - m_side * 1.5f, -32f, 32f);
                 m_roll = Mathf.MoveTowards(m_roll, rollT, 60f * dt);
             }

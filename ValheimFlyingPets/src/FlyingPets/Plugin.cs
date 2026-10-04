@@ -19,7 +19,7 @@ namespace FlyingPets
     {
         public const string PluginGuid = "com.oulassevich.flyingpets";
         public const string PluginName = "FlyingPets";
-        public const string PluginVersion = "1.1.0";
+        public const string PluginVersion = "1.2.0";
 
         internal static ManualLogSource Log;
 
@@ -35,6 +35,11 @@ namespace FlyingPets
             TryPatch(typeof(StaffAttackPatch), "staff");
             TryPatch(typeof(RiderControlsPatch), "rider-controls");
             TryPatch(typeof(RiderStopPatch), "rider-dismount");
+            TryPatch(typeof(CreatureAiPatch), "abilities: creature AI");
+            TryPatch(typeof(HeldPhysicsPatch), "abilities: talon grab");
+            TryPatch(typeof(HuginnExplorePatch), "abilities: Huginn");
+            TryPatch(typeof(RavenFeastPatch), "abilities: ravens' feast");
+            TryPatch(typeof(UnderWingPatch), "abilities: under the wing");
 
             PrefabManager.OnVanillaPrefabsAvailable += OnVanillaPrefabsAvailable;
             Log.LogInfo(PluginName + " " + PluginVersion + " loaded.");
@@ -61,6 +66,11 @@ namespace FlyingPets
             {
                 Log.LogError("The staff could not be registered: " + e);
             }
+        }
+
+        private void Update()
+        {
+            Passives.FrameUpdate();
         }
 
         private void OnDestroy()

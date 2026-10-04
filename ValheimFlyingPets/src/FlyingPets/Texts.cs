@@ -27,6 +27,30 @@ namespace FlyingPets
             { "fp_msg_landing", "Landing..." },
             { "fp_msg_noroom", "Not enough room here" },
             { "fp_msg_controls", "W - forward (where you look)   Shift - faster   Space - take off / climb   Ctrl - descend / land   E - dismount" },
+            { "fp_msg_skill_thunder_hoof", "Mouse wheel (in flight) - Thunder hoof" },
+            { "fp_msg_skill_talon_grab", "Mouse wheel (in flight) - Talon grab / let go" },
+            { "fp_msg_need_air", "Take off first" },
+            { "fp_msg_cooldown", "{0}: {1} s more" },
+            { "fp_msg_grab_none", "Nobody to grab - fly low over a creature" },
+            { "fp_msg_grab_big", "{0} is too heavy for the raven" },
+            { "fp_msg_grab", "The raven seizes: {0}" },
+            { "fp_msg_drop", "The raven lets go: {0}" },
+            { "fp_msg_caught", "The pegasus caught you!" },
+            { "fp_msg_muninn", "Muninn remembers: {0}" },
+            { "fp_pin_dungeon", "Dungeon" },
+            { "fp_pin_trader", "Trader" },
+            { "fp_pin_runestone", "Runestone" },
+            { "fp_pin_altar", "Altar" },
+            { "fp_se_pegasus_tip", "Draft horse: you carry more in the saddle.\nUnder the wing: rain and frost cannot reach you.\nLight of Valhalla: the undead keep away from the pegasus.\nValkyrie's catch: the pegasus catches you when you fall.\nSecondary attack in flight: Thunder hoof." },
+            { "fp_se_raven_tip", "Huginn: the map opens much wider while you fly.\nMuninn: dungeons, traders, runestones and altars are pinned on your map.\nRavens' feast: trophies drop more often near the raven.\nShadow over the prey: animals freeze under the raven's shadow.\nSecondary attack in flight: Talon grab." },
+            { "fp_se_thunder", "Thunder hoof" },
+            { "fp_se_thunder_tip", "The hoof gathers the storm again." },
+            { "fp_se_grab", "Talon grab" },
+            { "fp_se_grab_tip", "The talons rest." },
+            { "fp_se_hold", "In the talons" },
+            { "fp_se_hold_tip", "Secondary attack: let go. From up high the prey will not survive the fall; near the ground it is set down gently." },
+            { "fp_se_catch", "Valkyrie's catch" },
+            { "fp_se_catch_tip", "The pegasus needs time before it can catch you again." },
         };
 
         private static readonly Dictionary<string, string> Russian = new Dictionary<string, string>
@@ -50,6 +74,30 @@ namespace FlyingPets
             { "fp_msg_landing", "Снижаемся..." },
             { "fp_msg_noroom", "Здесь слишком тесно" },
             { "fp_msg_controls", "W - вперёд (куда смотрите)   Shift - быстрее   Пробел - взлёт / вверх   Ctrl - вниз / посадка   E - спешиться" },
+            { "fp_msg_skill_thunder_hoof", "Колесо мыши (в полёте) - Громовое копыто" },
+            { "fp_msg_skill_talon_grab", "Колесо мыши (в полёте) - Хватка / отпустить" },
+            { "fp_msg_need_air", "Сначала взлетите" },
+            { "fp_msg_cooldown", "{0}: ещё {1} с" },
+            { "fp_msg_grab_none", "Хватать некого - снизьтесь над существом" },
+            { "fp_msg_grab_big", "{0} - слишком тяжело для ворона" },
+            { "fp_msg_grab", "Ворон схватил: {0}" },
+            { "fp_msg_drop", "Ворон отпустил: {0}" },
+            { "fp_msg_caught", "Пегас подхватил вас!" },
+            { "fp_msg_muninn", "Мунин запомнил: {0}" },
+            { "fp_pin_dungeon", "Подземелье" },
+            { "fp_pin_trader", "Торговец" },
+            { "fp_pin_runestone", "Рунный камень" },
+            { "fp_pin_altar", "Алтарь" },
+            { "fp_se_pegasus_tip", "Тяжеловоз: в седле можно унести больше.\nПод крылом: ни дождь, ни мороз до вас не достают.\nСвет Вальгаллы: нежить держится подальше от пегаса.\nПодхват валькирии: пегас ловит вас при падении.\nВторичная атака в полёте: Громовое копыто." },
+            { "fp_se_raven_tip", "Хугин: в полёте карта открывается намного шире.\nМунин: подземелья, торговцы, рунные камни и алтари сами отмечаются на карте.\nПир воронья: рядом с вороном трофеи выпадают чаще.\nТень над добычей: звери замирают под тенью ворона.\nВторичная атака в полёте: Хватка." },
+            { "fp_se_thunder", "Громовое копыто" },
+            { "fp_se_thunder_tip", "Копыто снова набирается грозы." },
+            { "fp_se_grab", "Хватка" },
+            { "fp_se_grab_tip", "Когти отдыхают." },
+            { "fp_se_hold", "В когтях" },
+            { "fp_se_hold_tip", "Вторичная атака: отпустить. С высоты добыча не переживёт падения, у самой земли ворон опустит её бережно." },
+            { "fp_se_catch", "Подхват валькирии" },
+            { "fp_se_catch_tip", "Пегасу нужно время, прежде чем он снова сможет вас поймать." },
         };
 
         public static void Register()
@@ -70,6 +118,11 @@ namespace FlyingPets
             }
 
             return args != null && args.Length > 0 ? string.Format(text, args) : text;
+        }
+
+        public static bool Has(string token)
+        {
+            return English.ContainsKey(token);
         }
 
         /// <summary>Registers a pet name token on the fly (for pets added by dropping a folder into pets/).</summary>

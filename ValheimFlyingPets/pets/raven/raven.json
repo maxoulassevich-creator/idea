@@ -3661,5 +3661,12 @@
   "vertices": 23886,
   "triangles": 28624,
   "bones": 241
- }
+ },
+ "abilities": [
+  "huginn",
+  "muninn",
+  "raven_feast",
+  "prey_shadow",
+  "talon_grab"
+ ]
 }

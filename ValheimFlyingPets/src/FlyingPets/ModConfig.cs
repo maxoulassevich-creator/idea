@@ -14,6 +14,8 @@ namespace FlyingPets
         private const string SecPet = "4 - Pet";
         private const string SecStaff = "5 - Staff";
         private const string SecLooks = "6 - Looks";
+        private const string SecPegasus = "7 - Pegasus abilities";
+        private const string SecRaven = "8 - Raven abilities";
 
         public static ConfigEntry<bool> PitchFollowsCamera;
         public static ConfigEntry<float> PitchDeadZone;
@@ -41,6 +43,30 @@ namespace FlyingPets
         public static ConfigEntry<string> StaffBasePrefab;
 
         public static ConfigEntry<bool> EyeLight;
+
+        public static ConfigEntry<float> CarryBonus;
+        public static ConfigEntry<bool> UnderWing;
+        public static ConfigEntry<float> ValhallaRadius;
+        public static ConfigEntry<bool> ValkyrieCatch;
+        public static ConfigEntry<float> CatchCooldown;
+        public static ConfigEntry<bool> ThunderHoof;
+        public static ConfigEntry<float> ThunderDamage;
+        public static ConfigEntry<float> ThunderRadius;
+        public static ConfigEntry<float> ThunderCooldown;
+        public static ConfigEntry<float> SpringHealPerSecond;
+        public static ConfigEntry<float> SpringDuration;
+
+        public static ConfigEntry<float> HuginnMultiplier;
+        public static ConfigEntry<bool> MuninnPins;
+        public static ConfigEntry<float> MuninnRange;
+        public static ConfigEntry<float> FeastMultiplier;
+        public static ConfigEntry<float> FeastRadius;
+        public static ConfigEntry<float> PreyFreezeSeconds;
+        public static ConfigEntry<bool> TalonGrab;
+        public static ConfigEntry<float> GrabCooldown;
+        public static ConfigEntry<float> GrabMaxHold;
+        public static ConfigEntry<float> GrabMaxRadius;
+        public static ConfigEntry<float> GrabLethalHeight;
 
         public static void Init(ConfigFile cfg)
         {
@@ -83,6 +109,50 @@ namespace FlyingPets
                 "Vanilla item whose 3D model the staff borrows until it gets its own model.");
 
             EyeLight = cfg.Bind(SecLooks, "EyeLight", true, "A faint light from the glowing eyes.");
+
+            // abilities: every setting applies on the game of the player it concerns (the rider, the summoner,
+            // or whoever simulates the creature), so in multiplayer each player's own file counts for them
+            CarryBonus = cfg.Bind(SecPegasus, "DraftHorseCarryWeight", 150f,
+                "Draft horse: extra carry weight while you sit in the pegasus saddle (0 = off).");
+            UnderWing = cfg.Bind(SecPegasus, "UnderWing", true,
+                "Under the wing: no Wet, Cold or Freezing while you sit in the pegasus saddle.");
+            ValhallaRadius = cfg.Bind(SecPegasus, "ValhallaLightRadius", 10f,
+                "Light of Valhalla: the undead keep at least this far from a pegasus unless they were hurt " +
+                "in the last 20 seconds, m (0 = off).");
+            ValkyrieCatch = cfg.Bind(SecPegasus, "ValkyrieCatch", true,
+                "Valkyrie's catch: your summoned pegasus catches you into the saddle when you fall from a height.");
+            CatchCooldown = cfg.Bind(SecPegasus, "ValkyrieCatchCooldown", 300f, "Valkyrie's catch: cooldown, s.");
+            ThunderHoof = cfg.Bind(SecPegasus, "ThunderHoof", true,
+                "Thunder hoof (secondary attack in the saddle, in flight): dive and strike the ground with lightning.");
+            ThunderDamage = cfg.Bind(SecPegasus, "ThunderHoofDamage", 60f,
+                "Thunder hoof: damage of a strike from low height (lightning and blunt). A dive from 40 m or more triples it.");
+            ThunderRadius = cfg.Bind(SecPegasus, "ThunderHoofRadius", 7f, "Thunder hoof: radius of the shockwave, m.");
+            ThunderCooldown = cfg.Bind(SecPegasus, "ThunderHoofCooldown", 60f, "Thunder hoof: cooldown, s.");
+            SpringHealPerSecond = cfg.Bind(SecPegasus, "HippocreneHealPerSecond", 8f,
+                "Hippocrene: health per second for players standing in the spring that appears after a strike (0 = no spring).");
+            SpringDuration = cfg.Bind(SecPegasus, "HippocreneDuration", 10f, "Hippocrene: how long the spring stays, s.");
+
+            HuginnMultiplier = cfg.Bind(SecRaven, "HuginnExploreMultiplier", 3f,
+                "Huginn: the map is uncovered this many times wider while you fly the raven (1 = off).");
+            MuninnPins = cfg.Bind(SecRaven, "MuninnPins", true,
+                "Muninn: pins dungeons, traders, runestones and boss altars on your map while you ride the raven " +
+                "or it follows you.");
+            MuninnRange = cfg.Bind(SecRaven, "MuninnRange", 150f, "Muninn: how far the raven notices places, m.");
+            FeastMultiplier = cfg.Bind(SecRaven, "RavenFeastTrophyMultiplier", 2f,
+                "Ravens' feast: trophies drop this many times more often from creatures killed near a raven (1 = off).");
+            FeastRadius = cfg.Bind(SecRaven, "RavenFeastRadius", 30f, "Ravens' feast: how near the raven, m (horizontally).");
+            PreyFreezeSeconds = cfg.Bind(SecRaven, "PreyShadowSeconds", 2.5f,
+                "Shadow over the prey: animals under a flying raven freeze for this long, s (0 = off).");
+            TalonGrab = cfg.Bind(SecRaven, "TalonGrab", true,
+                "Talon grab (secondary attack in the saddle, in flight): seize a creature under the raven, " +
+                "press again to let go.");
+            GrabCooldown = cfg.Bind(SecRaven, "TalonGrabCooldown", 30f, "Talon grab: cooldown after letting go, s.");
+            GrabMaxHold = cfg.Bind(SecRaven, "TalonGrabMaxHold", 30f, "Talon grab: the raven lets go after this long, s.");
+            GrabMaxRadius = cfg.Bind(SecRaven, "TalonGrabMaxSize", 0f,
+                "Talon grab: biggest creature the raven can lift, as the radius of its body in m " +
+                "(0 = as big as a troll). Bosses and players are never grabbed.");
+            GrabLethalHeight = cfg.Bind(SecRaven, "TalonGrabLethalHeight", 30f,
+                "Talon grab: a creature dropped from this height dies; from 6 m it is unharmed, in between it is hurt, m.");
         }
     }
 }

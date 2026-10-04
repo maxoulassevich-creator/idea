@@ -64,6 +64,11 @@ namespace FlyingPets
             if (ModConfig.ShowControlsHint.Value)
             {
                 player.Message(MessageHud.MessageType.TopLeft, Texts.Get("fp_msg_controls"));
+                string active = PetAbility.ActiveOf(m_asset.Abilities);
+                if (active != null && Texts.Has("fp_msg_skill_" + active))
+                {
+                    player.Message(MessageHud.MessageType.TopLeft, Texts.Get("fp_msg_skill_" + active));
+                }
             }
         }
 
@@ -122,6 +127,10 @@ namespace FlyingPets
             else if (!m_attachedLocal || m_attachAnim != RideAnimation)
             {
                 Attach(player, RideAnimation);
+            }
+            else
+            {
+                SkillInput(player);
             }
         }
 
@@ -184,6 +193,7 @@ namespace FlyingPets
                 return;
             }
 
+            StopSkill();
             m_localRider = null;
             if (m_attachedLocal && player != null && player.IsAttached())
             {
