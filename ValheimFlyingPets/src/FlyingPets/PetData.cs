@@ -17,6 +17,9 @@ namespace FlyingPets
         public string name;
         public int parent;
         public float[] pivot;
+
+        // feather bones only: local rotation (x, y, z, degrees) when the wing or tail is fully folded
+        public float[] fold;
     }
 
     /// <summary>&lt;key&gt;.json - skeleton, seat and animation tuning of one pet.</summary>
@@ -33,7 +36,8 @@ namespace FlyingPets
         public float[] eyeGlow;
         public string headBone;
 
-        // wing poses as axis-angle (x, y, z, degrees), authored for the right wing
+        // wing poses, authored for the right wing: either the arm rotation alone (x, y, z, degrees) or
+        // 13 values: arm, forearm and hand rotations (x, y, z, degrees each) and the feather fan (0..1)
         public float[] wingFold;
         public float[] wingRamp;
         public float[] wingPerch;
@@ -59,6 +63,14 @@ namespace FlyingPets
         public float swingTrot;
         public float[] frontFlex;
         public float[] rearFlex;
+        // birds (all optional): body pitch and wing-beat shape in flight, feather fans, hopping run
+        public float flyPitch;
+        public float[] flapShape;
+        public float[] flyFan;
+        public float[] tailFan;
+        public float tailRest;
+        public float hop;
+
         public float[] boundsMin;
         public float[] boundsMax;
         public float bodyRadius;

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace FlyingPets
@@ -32,19 +33,23 @@ namespace FlyingPets
         }
     }
 
-    /// <summary>Wing pose: rotation of the arm bone and of the hand bone (right wing; the left one is mirrored).</summary>
+    /// <summary>
+    ///     Wing pose of the right wing (the left one is mirrored): rotations of the arm, forearm and hand
+    ///     bones, and how far the feathers are folded (0 = spread as modelled, 1 = folded).
+    /// </summary>
     internal struct WingShape
     {
-        public Vector3 Arm;
-        public float ArmDeg;
-        public Vector3 Hand;
-        public float HandDeg;
+        public Quaternion Arm;
+        public Quaternion Fore;
+        public Quaternion Hand;
+        public float Fan;
     }
 
     /// <summary>
-    ///     Procedural animation of a winged quadruped. Every pose is built from rotations about the
-    ///     bone pivots (bones rest unrotated), authored for the right side and mirrored for the left
-    ///     with axis (x, -y, -z). Poses are blended per bone with quaternion slerp.
+    ///     Procedural animation of a winged mount: a quadruped (pegasus) or a bird (raven). Every pose is
+    ///     built from rotations about the bone pivots (bones rest unrotated), authored for the right side
+    ///     and mirrored for the left with axis (x, -y, -z). Poses are blended per bone with quaternion
+    ///     slerp. Feather bones carry their own folded rotation and follow the fan of their wing or tail.
     /// </summary>
     internal sealed class PetAnimator
     {
@@ -64,6 +69,13 @@ namespace FlyingPets
         private readonly int[,] legF = new int[2, 4];
         private readonly int[,] legR = new int[2, 3];
         public readonly int[,] Wing = new int[2, 3];
+        private readonly int[] scapula = new int[2];
+
+        // feathers of each wing and of the tail, with their fully folded local rotations
+        private readonly int[][] featherBones = new int[2][];
+        private readonly Quaternion[][] featherFold = new Quaternion[2][];
+        private readonly int[] tailFeathers;
+        private readonly Quaternion[] tailFold;
 
         public readonly int[] Core;
         public readonly int[] Legs;
@@ -98,11 +110,72 @@ namespace FlyingPets
                     Wing[s, i] = asset.Bone("wing_" + sides[s] + i);
                 }
 
-                WingBones[s] = new[] { Wing[s, 0], Wing[s, 1], Wing[s, 2] };
+                scapula[s] = asset.Bone("wing_" + sides[s] + "s");
             }
 
-            var core = new System.Collections.Generic.List<int>();
-            var legs = new System.Collections.Generic.List<int>();
+            // feathers: bones with a fold rotation, grouped by the wing (or the tail) they hang from
+            var fb = new[] { new List<int>(), new List<int>() };
+            var fq = new[] { new List<Quaternion>(), new List<Quaternion>() };
+            var tb = new List<int>();
+            var tq = new List<Quaternion>();
+            var group = new int[BoneCount];
+            for (int i = 0; i < BoneCount; i++)
+            {
+                group[i] = -1;
+                var b = m.bones[i];
+                if (b == null || b.fold == null || b.fold.Length < 4)
+                {
+                    continue;
+                }
+
+                for (int g = i; g >= 0; g = asset.BoneParents[g])
+                {
+                    string n = asset.BoneNames[g];
+                    if (n.StartsWith("wing_R", StringComparison.Ordinal))
+                    {
+                        group[i] = 0;
+                        break;
+                    }
+
+                    if (n.StartsWith("wing_L", StringComparison.Ordinal))
+                    {
+                        group[i] = 1;
+                        break;
+                    }
+
+                    if (n.StartsWith("tail", StringComparison.Ordinal))
+                    {
+                        group[i] = 2;
+                        break;
+                    }
+                }
+
+                var q = AxisAngle(b.fold, 0);
+                if (group[i] == 0 || group[i] == 1)
+                {
+                    fb[group[i]].Add(i);
+                    fq[group[i]].Add(q);
+                }
+                else if (group[i] == 2)
+                {
+                    tb.Add(i);
+                    tq.Add(q);
+                }
+            }
+
+            tailFeathers = tb.ToArray();
+            tailFold = tq.ToArray();
+            for (int s = 0; s < 2; s++)
+            {
+                featherBones[s] = fb[s].ToArray();
+                featherFold[s] = fq[s].ToArray();
+                var wb = new List<int> { scapula[s], Wing[s, 0], Wing[s, 1], Wing[s, 2] };
+                wb.AddRange(featherBones[s]);
+                WingBones[s] = wb.ToArray();
+            }
+
+            var core = new List<int>();
+            var legs = new List<int>();
             for (int i = 0; i < BoneCount; i++)
             {
                 string n = asset.BoneNames[i];
@@ -110,7 +183,7 @@ namespace FlyingPets
                 {
                     legs.Add(i);
                 }
-                else if (!n.StartsWith("wing_", StringComparison.Ordinal))
+                else if (!n.StartsWith("wing_", StringComparison.Ordinal) && group[i] != 0 && group[i] != 1)
                 {
                     core.Add(i);
                 }
@@ -125,15 +198,32 @@ namespace FlyingPets
             Scoop = Shape(m.wingScoop ?? m.wingPerch, Y, 6f);
         }
 
+        private static Quaternion AxisAngle(float[] a, int o)
+        {
+            var axis = new Vector3(a[o], a[o + 1], a[o + 2]);
+            return axis.sqrMagnitude > 1e-12f && Mathf.Abs(a[o + 3]) > 1e-6f ? Quaternion.AngleAxis(a[o + 3], axis) : Quaternion.identity;
+        }
+
         private static WingShape Shape(float[] aa, Vector3 hand, float handDeg)
         {
+            if (aa != null && aa.Length >= 12)
+            {
+                return new WingShape
+                {
+                    Arm = AxisAngle(aa, 0),
+                    Fore = AxisAngle(aa, 4),
+                    Hand = AxisAngle(aa, 8),
+                    Fan = aa.Length >= 13 ? Mathf.Clamp01(aa[12]) : 0f,
+                };
+            }
+
             bool ok = aa != null && aa.Length >= 4;
             return new WingShape
             {
-                Arm = ok ? new Vector3(aa[0], aa[1], aa[2]) : Vector3.up,
-                ArmDeg = ok ? aa[3] : 0f,
-                Hand = hand,
-                HandDeg = handDeg,
+                Arm = ok ? AxisAngle(aa, 0) : Quaternion.identity,
+                Fore = Quaternion.identity,
+                Hand = Quaternion.AngleAxis(handDeg, hand),
+                Fan = 0f,
             };
         }
 
@@ -146,6 +236,12 @@ namespace FlyingPets
         private static Vector3 Side(Vector3 axis, int side)
         {
             return side == Right ? axis : new Vector3(axis.x, -axis.y, -axis.z);
+        }
+
+        /// <summary>A right-side rotation for the given side (mirrored across x = 0 for the left).</summary>
+        private static Quaternion Side(Quaternion q, int side)
+        {
+            return side == Right ? q : new Quaternion(q.x, -q.y, -q.z, q.w);
         }
 
         private static void Set(PetPose p, int bone, Quaternion q)
@@ -173,6 +269,12 @@ namespace FlyingPets
             return ph < 0.4f ? Mathf.Cos(Mathf.PI * ph / 0.4f) : -Mathf.Cos(Mathf.PI * (ph - 0.4f) / 0.6f);
         }
 
+        /// <summary>0 during the downstroke, rising to 1 in the middle of the recovery stroke.</summary>
+        private static float Upstroke(float ph)
+        {
+            return ph < 0.4f ? 0f : Mathf.Sin(Mathf.PI * (ph - 0.4f) / 0.6f);
+        }
+
         private float Arr(float[] a, int i, float fallback)
         {
             return PetAsset.At(a, i, fallback);
@@ -190,17 +292,46 @@ namespace FlyingPets
             }
         }
 
-        // ------------------------------------------------------------------ wings
-        public Quaternion WingArm(WingShape w, int side)
+        // ------------------------------------------------------------------ wings and feathers
+        private void SetFan(PetPose p, int side, float fan)
         {
-            return Rot(Side(w.Arm, side), w.ArmDeg);
+            int[] bones = featherBones[side];
+            Quaternion[] fold = featherFold[side];
+            for (int k = 0; k < bones.Length; k++)
+            {
+                p.Q[bones[k]] = Quaternion.Slerp(Quaternion.identity, fold[k], fan);
+            }
+        }
+
+        private void SetTailFan(PetPose p, float fan)
+        {
+            for (int k = 0; k < tailFeathers.Length; k++)
+            {
+                p.Q[tailFeathers[k]] = Quaternion.Slerp(Quaternion.identity, tailFold[k], fan);
+            }
+        }
+
+        /// <summary>The shoulder rotation; with a scapula helper bone both bones take half of it.</summary>
+        private void SetArm(PetPose p, int side, Quaternion q)
+        {
+            if (scapula[side] >= 0)
+            {
+                var half = Quaternion.Slerp(Quaternion.identity, q, 0.5f);
+                p.Q[scapula[side]] = half;
+                Set(p, Wing[side, 0], half);
+            }
+            else
+            {
+                Set(p, Wing[side, 0], q);
+            }
         }
 
         public void SetWing(PetPose p, int side, WingShape w)
         {
-            Set(p, Wing[side, 0], Rot(Side(w.Arm, side), w.ArmDeg));
-            Set(p, Wing[side, 1], Quaternion.identity);
-            Set(p, Wing[side, 2], Rot(Side(w.Hand, side), w.HandDeg));
+            SetArm(p, side, Side(w.Arm, side));
+            Set(p, Wing[side, 1], Side(w.Fore, side));
+            Set(p, Wing[side, 2], Side(w.Hand, side));
+            SetFan(p, side, w.Fan);
         }
 
         public void SetWing(PetPose p, int side, WingShape a, WingShape b, float t)
@@ -217,9 +348,10 @@ namespace FlyingPets
                 return;
             }
 
-            Set(p, Wing[side, 0], Quaternion.Slerp(Rot(Side(a.Arm, side), a.ArmDeg), Rot(Side(b.Arm, side), b.ArmDeg), t));
-            Set(p, Wing[side, 1], Quaternion.identity);
-            Set(p, Wing[side, 2], Quaternion.Slerp(Rot(Side(a.Hand, side), a.HandDeg), Rot(Side(b.Hand, side), b.HandDeg), t));
+            SetArm(p, side, Side(Quaternion.Slerp(a.Arm, b.Arm, t), side));
+            Set(p, Wing[side, 1], Side(Quaternion.Slerp(a.Fore, b.Fore, t), side));
+            Set(p, Wing[side, 2], Side(Quaternion.Slerp(a.Hand, b.Hand, t), side));
+            SetFan(p, side, Mathf.Lerp(a.Fan, b.Fan, t));
         }
 
         // ------------------------------------------------------------------ poses
@@ -236,10 +368,11 @@ namespace FlyingPets
             Set(p, neck1, Rot(Y, 4f * look) * Rot(X, -2f + 1.5f * b));
             Set(p, neck2, Rot(Y, 5f * look) * Rot(X, -1f + b));
             Set(p, head, Rot(Y, 4f * look) * Rot(X, 2f - 1.5f * b));
-            Set(p, tail[0], Rot(Y, 6f * Mathf.Sin(sw)));
+            Set(p, tail[0], Rot(Y, 6f * Mathf.Sin(sw)) * Rot(X, m.tailRest));
             Set(p, tail[1], Rot(Y, 8f * Mathf.Sin(sw - 0.7f)));
             Set(p, tail[2], Rot(Y, 10f * Mathf.Sin(sw - 1.4f)));
             Set(p, tail[3], Rot(Y, 12f * Mathf.Sin(sw - 2.1f)));
+            SetTailFan(p, Arr(m.tailFan, 0, 1f));
         }
 
         /// <summary>Flapping flight at wing-beat phase ph (0..1); legs tucked, neck stretched.</summary>
@@ -248,12 +381,18 @@ namespace FlyingPets
             p.Reset();
             float s = Stroke(ph);
             float lag = Stroke(Frac(ph - 0.12f));
+            float up = Upstroke(ph);
+            float[] f = m.flapShape;
+            float armSweep = Arr(f, 0, 6f), armBase = Arr(f, 1, 6f), foreLag = Arr(f, 2, 8f);
+            float handSweep = Arr(f, 3, -8f), handLag = Arr(f, 4, 18f), handBase = Arr(f, 5, -4f), upFlex = Arr(f, 6, 0f);
+            float fan = Arr(m.flyFan, 0, 0f) + Arr(m.flyFan, 1, 0f) * up;
             for (int side = 0; side < 2; side++)
             {
                 Vector3 y = Side(Y, side), z = Side(Z, side);
-                Set(p, Wing[side, 0], Rot(y, 6f * s) * Rot(z, 6f + amp * s));
-                Set(p, Wing[side, 1], Rot(z, 8f * lag));
-                Set(p, Wing[side, 2], Rot(y, -8f * s) * Rot(z, 18f * lag - 4f));
+                SetArm(p, side, Rot(y, armSweep * s) * Rot(z, armBase + amp * s));
+                Set(p, Wing[side, 1], Rot(y, upFlex * up) * Rot(z, foreLag * lag));
+                Set(p, Wing[side, 2], Rot(y, handSweep * s + 1.6f * upFlex * up) * Rot(z, handLag * lag + handBase));
+                SetFan(p, side, fan);
                 for (int i = 0; i < 4; i++)
                 {
                     Set(p, legF[side, i], Rot(X, Arr(m.flyFront, i, 0f)));
@@ -265,7 +404,7 @@ namespace FlyingPets
                 }
             }
 
-            Set(p, Body, Rot(X, -2.5f * s));
+            Set(p, Body, Rot(X, m.flyPitch - 2.5f * s));
             Set(p, neck1, Rot(X, Arr(m.neckFly, 0, 22f) + 1.5f * s));
             Set(p, neck2, Rot(X, Arr(m.neckFly, 1, 8f)));
             Set(p, head, Rot(X, Arr(m.neckFly, 2, -18f)));
@@ -274,6 +413,7 @@ namespace FlyingPets
             Set(p, tail[1], Rot(Y, 5f * Mathf.Sin(tw)) * Rot(X, Arr(m.tailFly, 1, 4f)));
             Set(p, tail[2], Rot(Y, 6f * Mathf.Sin(tw - 0.8f)) * Rot(X, Arr(m.tailFly, 1, 4f)));
             Set(p, tail[3], Rot(Y, 7f * Mathf.Sin(tw - 1.6f)) * Rot(X, Arr(m.tailFly, 2, 0f)));
+            SetTailFan(p, Arr(m.tailFan, 1, 0f));
             p.Root = new Vector3(0f, 0.07f * s, 0f);
         }
 
@@ -281,20 +421,24 @@ namespace FlyingPets
         public void Glide(float t, float amp, PetPose p)
         {
             Fly(0.264f, amp, p);
+            float fan = Arr(m.flyFan, 0, 0f);
             for (int side = 0; side < 2; side++)
             {
                 Vector3 z = Side(Z, side);
-                Set(p, Wing[side, 0], Rot(z, 10f + 2f * Mathf.Sin(1.6f * t)));
+                SetArm(p, side, Rot(z, 10f + 2f * Mathf.Sin(1.6f * t)));
                 Set(p, Wing[side, 1], Rot(z, 2f));
                 Set(p, Wing[side, 2], Rot(z, -6f));
+                SetFan(p, side, fan);
             }
 
+            SetTailFan(p, Arr(m.tailFan, 2, 0f));
             p.Root = Vector3.zero;
         }
 
         /// <summary>
-        ///     Walk (4-beat) that turns into a trot (diagonal pairs) with speed. gaitPhase advances by
-        ///     speed / stride per second; negative speeds walk backwards.
+        ///     Walk (4-beat) that turns into a trot (diagonal pairs) with speed; a bird with 'hop' set
+        ///     hops instead, both feet together. gaitPhase advances by speed / stride per second;
+        ///     negative speeds walk backwards.
         /// </summary>
         public void Walk(float t, float gaitPhase, float speed, PetPose p)
         {
@@ -304,15 +448,23 @@ namespace FlyingPets
             float duty = 0.62f - 0.17f * trot;
             float amp = Mathf.Lerp(m.swingWalk > 0f ? m.swingWalk : 17f, m.swingTrot > 0f ? m.swingTrot : 24f, trot);
             float mix = Smooth(trot);
-            // walk: rR 0, fR .25, rL .5, fL .75   trot: fR+rL 0, fL+rR .5
+            bool hop = m.hop > 0f;
+            // walk: rR 0, fR .25, rL .5, fL .75   trot: fR+rL 0, fL+rR .5   hop: rR+rL .5
             LegPair(p, Right, true, gaitPhase + Mathf.Lerp(0.25f, 0f, mix), duty, amp);
             LegPair(p, Left, true, gaitPhase + Mathf.Lerp(0.75f, 0.5f, mix), duty, amp);
             LegPair(p, Right, false, gaitPhase + Mathf.Lerp(0f, 0.5f, mix), duty, amp);
-            LegPair(p, Left, false, gaitPhase + Mathf.Lerp(0.5f, 0f, mix), duty, amp);
+            LegPair(p, Left, false, gaitPhase + Mathf.Lerp(0.5f, hop ? 0.5f : 0f, mix), duty, amp);
             float nod = Mathf.Sin(2f * Tau * gaitPhase);
             Set(p, neck1, Rot(X, -2f + 3f * nod * (1f - 0.5f * trot)));
             Set(p, head, Rot(X, 2f - 2f * nod));
             p.Root = new Vector3(0f, -0.02f * (1f + trot) * Mathf.Abs(nod), 0f);
+            if (hop)
+            {
+                // both feet leave the ground together and the body bounds
+                float ph = Frac(gaitPhase + 0.5f);
+                float air = ph >= duty ? Mathf.Sin(Mathf.PI * (ph - duty) / (1f - duty)) : 0f;
+                p.Root.y += m.hop * mix * air;
+            }
         }
 
         private void LegPair(PetPose p, int side, bool front, float phase, float duty, float amp)
@@ -321,7 +473,7 @@ namespace FlyingPets
             float sw, lift;
             if (ph < duty)
             {
-                sw = -1f + 2f * ph / duty; // planted: the hoof slides back under the body
+                sw = -1f + 2f * ph / duty; // planted: the foot slides back under the body
                 lift = 0f;
             }
             else
@@ -346,7 +498,7 @@ namespace FlyingPets
             }
         }
 
-        /// <summary>Kneeling for a rider on the given side: front knees down, chest low, head turned to the rider.</summary>
+        /// <summary>Kneeling for a rider on the given side: legs folded, chest low, head turned to the rider.</summary>
         public void Kneel(int nearSide, PetPose p)
         {
             Idle(0f, p);

@@ -18,7 +18,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
-$version = '1.0.1'
+$version = '1.1.0'
 $zipName = "FlyingPets-$version.zip"
 
 Write-Host ''
