@@ -7,6 +7,7 @@ namespace FlyingPets
     {
         private static float s_nextUse;
         private static int s_selected;
+        private static ZDOID s_lastPet = ZDOID.None;
 
         /// <summary>Handles an attack with the staff. Returns true when the attack input was consumed.</summary>
         public static bool UseStaff(Player player, bool secondary)
@@ -40,6 +41,7 @@ namespace FlyingPets
                 }
                 else
                 {
+                    RemoveStalePet();
                     Summon(player);
                 }
 
@@ -64,6 +66,25 @@ namespace FlyingPets
             s_selected = (s_selected + 1) % PetLibrary.Pets.Count;
             player.Message(MessageHud.MessageType.Center, Texts.Get("fp_msg_select", PetLibrary.Pets[s_selected].DisplayName));
             return true;
+        }
+
+        /// <summary>
+        ///     A pet left far behind is not loaded, so the staff cannot see it and summons a new one:
+        ///     remove the old one first so there are never two.
+        /// </summary>
+        private static void RemoveStalePet()
+        {
+            if (s_lastPet.IsNone() || ZDOMan.instance == null)
+            {
+                return;
+            }
+
+            var zdo = ZDOMan.instance.GetZDO(s_lastPet);
+            s_lastPet = ZDOID.None;
+            if (zdo != null && zdo.IsOwner() && (ZNetScene.instance == null || ZNetScene.instance.FindInstance(zdo) == null))
+            {
+                ZDOMan.instance.DestroyZDO(zdo);
+            }
         }
 
         private static void Summon(Player player)
@@ -114,6 +135,12 @@ namespace FlyingPets
             if (pet != null)
             {
                 pet.InitSummoned(player);
+            }
+
+            var nview = go.GetComponent<ZNetView>();
+            if (nview != null && nview.GetZDO() != null)
+            {
+                s_lastPet = nview.GetZDO().m_uid;
             }
 
             Util.SpawnEffect(Util.SummonEffects, pos + Vector3.up * (1.2f * scale), Quaternion.identity);
