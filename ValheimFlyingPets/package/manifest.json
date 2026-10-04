@@ -1,0 +1,7 @@
+{
+  "name": "FlyingPets",
+  "version_number": "1.0.0",
+  "website_url": "",
+  "description": "Winged mounts you can ride and fly: a staff summons a pegasus that kneels, lifts you into the saddle with its wing and takes off.",
+  "dependencies": []
+}
