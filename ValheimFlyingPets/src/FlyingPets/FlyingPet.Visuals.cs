@@ -188,6 +188,13 @@ namespace FlyingPets
                 SequenceWings(m_pOut, near);
             }
 
+            // the tidal breath: jaws wide open
+            m_breathW = Mathf.MoveTowards(m_breathW, skill == SkillBreath ? 1f : 0f, dt * 5f);
+            if (m_breathW > 0.001f)
+            {
+                m_anim.SetJaw(m_pOut, PetAnimator.Smooth(m_breathW));
+            }
+
             // ---- apply
             for (int i = 0; i < m_bones.Length; i++)
             {

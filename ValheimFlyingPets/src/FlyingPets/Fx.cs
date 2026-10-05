@@ -9,7 +9,7 @@ namespace FlyingPets
     ///     synthesized sounds) so they do not depend on the names of vanilla effect prefabs. Local only:
     ///     the pet sends an RPC and every game plays its own copy.
     /// </summary>
-    internal static class Fx
+    internal static partial class Fx
     {
         private static readonly System.Collections.Generic.Dictionary<string, Material> s_mats =
             new System.Collections.Generic.Dictionary<string, Material>();

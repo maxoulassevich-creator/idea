@@ -23,6 +23,13 @@ namespace FlyingPets
         public const string PreyShadow = "prey_shadow";         // animals freeze under its shadow
         public const string TalonGrab = "talon_grab";           // active: carry a creature
 
+        // water dragon
+        public const string SeaTruce = "sea_truce";             // sea monsters keep away unless provoked
+        public const string LivingWater = "living_water";       // wet near the dragon: health comes back faster
+        public const string Fisher = "fisher";                  // skimming the water brings up fish
+        public const string SteamingScales = "steaming_scales"; // no burning in the saddle
+        public const string TidalBreath = "tidal_breath";       // active: a jet of icy water
+
         /// <summary>Abilities of the built-in pets, for a pet folder from an older version without the list.</summary>
         public static string[] Defaults(string key)
         {
@@ -32,6 +39,8 @@ namespace FlyingPets
                     return new[] { DraftHorse, UnderWing, ValhallaLight, ValkyrieCatch, ThunderHoof };
                 case "raven":
                     return new[] { Huginn, Muninn, RavenFeast, PreyShadow, TalonGrab };
+                case "dragon":
+                    return new[] { SeaTruce, LivingWater, Fisher, SteamingScales, TidalBreath };
                 default:
                     return new string[0];
             }
@@ -57,6 +66,11 @@ namespace FlyingPets
             if (set.Contains(ThunderHoof))
             {
                 return ThunderHoof;
+            }
+
+            if (set.Contains(TidalBreath))
+            {
+                return TidalBreath;
             }
 
             return set.Contains(TalonGrab) ? TalonGrab : null;

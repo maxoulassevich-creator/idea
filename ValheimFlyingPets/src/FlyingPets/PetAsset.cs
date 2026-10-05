@@ -17,11 +17,15 @@ namespace FlyingPets
         public Mesh Mesh;
         public Texture2D Albedo;
         public Texture2D Normal;
+        public Texture2D Emission;
         public string[] BoneNames;
         public int[] BoneParents;
         public Vector3[] Pivots;
         public Vector3 EyeCenter;
         public bool HasEyes;
+        public int HeadIndex = -1;
+        public Vector3 Mouth;       // where a breath leaves the jaws (rest pose, model space)
+        public Vector3 MouthDir;
         public GameObject Prefab;
         public HashSet<string> Abilities = new HashSet<string>();
 
@@ -78,6 +82,11 @@ namespace FlyingPets
             }
 
             asset.Mesh = BuildMesh(PetMeshData.Parse(src.Read(src.Key + ".vpet"), nb), asset);
+            asset.HeadIndex = asset.Bone(string.IsNullOrEmpty(data.headBone) ? "head" : data.headBone);
+            Vector3 headPivot = asset.HeadIndex >= 0 ? asset.Pivots[asset.HeadIndex] : Vector3.zero;
+            asset.Mouth = V3(data.mouth, headPivot + Vector3.forward * 0.5f);
+            asset.MouthDir = V3(data.mouthDir, Vector3.forward);
+            asset.MouthDir = asset.MouthDir.sqrMagnitude > 1e-6f ? asset.MouthDir.normalized : Vector3.forward;
 
             // a texture problem must not cost us the whole pet: fall back to a plain colour
             string albedo = string.IsNullOrEmpty(data.albedo) ? src.Key + "_albedo.jpg" : data.albedo;
@@ -103,6 +112,20 @@ namespace FlyingPets
                     FlyingPetsPlugin.Log.LogWarning("Pet '" + src.Key + "': normal map " + data.normal + " failed (" +
                                                     e.GetType().Name + ": " + e.Message + "), continuing without it");
                     asset.Normal = null;
+                }
+            }
+
+            if (!string.IsNullOrEmpty(data.emission) && src.Has(data.emission))
+            {
+                try
+                {
+                    asset.Emission = LoadTexture(src.Read(data.emission), data.emission, false);
+                }
+                catch (Exception e)
+                {
+                    FlyingPetsPlugin.Log.LogWarning("Pet '" + src.Key + "': glow map " + data.emission + " failed (" +
+                                                    e.GetType().Name + ": " + e.Message + "), continuing without it");
+                    asset.Emission = null;
                 }
             }
 
@@ -416,10 +439,26 @@ namespace FlyingPets
                 }
             }
 
+            // the order the staff goes through them (the first is called by default): the built-in pets as
+            // they were added to the mod, then any others by name
+            Pets.Sort((a, b) =>
+            {
+                int ra = Rank(a.Key), rb = Rank(b.Key);
+                return ra != rb ? ra.CompareTo(rb) : string.CompareOrdinal(a.Key, b.Key);
+            });
+
             if (Pets.Count == 0)
             {
                 log.LogError("No pets could be loaded. " + (LastError.Length > 0 ? "Last error: " + LastError : "No pet files were found."));
             }
+        }
+
+        private static readonly string[] BuiltInOrder = { "pegasus", "raven", "dragon" };
+
+        private static int Rank(string key)
+        {
+            int i = Array.IndexOf(BuiltInOrder, key);
+            return i < 0 ? BuiltInOrder.Length : i;
         }
     }
 }

@@ -16,6 +16,7 @@ namespace FlyingPets
         public const string Grab = "grab";
         public const string Hold = "hold";
         public const string Catch = "catch";
+        public const string Breath = "breath";
 
         private static readonly Dictionary<string, Sprite> Icons = new Dictionary<string, Sprite>();
         private static readonly Dictionary<string, StatusEffect> Effects = new Dictionary<string, StatusEffect>();
@@ -134,6 +135,35 @@ namespace FlyingPets
             }
         }
 
+        /// <summary>Living water: faster health regeneration while the player is wet near the dragon.</summary>
+        public static void SetLiving(Player player, bool on)
+        {
+            if (player == null)
+            {
+                return;
+            }
+
+            try
+            {
+                var se = Make<SE_Stats>("living", "fp_se_living", "fp_se_living_tip", "living_water");
+                se.m_healthRegenMultiplier = Mathf.Max(1f, ModConfig.LivingWaterMultiplier.Value);
+                var seman = player.GetSEMan();
+                bool have = seman.HaveStatusEffect(se.NameHash());
+                if (on && !have)
+                {
+                    seman.AddStatusEffect(se, false, 0, 0f);
+                }
+                else if (!on && have)
+                {
+                    seman.RemoveStatusEffect(se.NameHash(), true);
+                }
+            }
+            catch (Exception e)
+            {
+                FlyingPetsPlugin.Log.LogWarning("Living water status effect failed: " + e.Message);
+            }
+        }
+
         /// <summary>Shows a timer (an ability recharging, or how long the raven can still hold its prey).</summary>
         public static void Timer(Player player, string id, float seconds)
         {
@@ -155,6 +185,9 @@ namespace FlyingPets
                         break;
                     case Hold:
                         se = Make<StatusEffect>(id, "fp_se_hold", "fp_se_hold_tip", "hold");
+                        break;
+                    case Breath:
+                        se = Make<StatusEffect>(id, "fp_se_breath", "fp_se_breath_tip", "breath");
                         break;
                     default:
                         se = Make<StatusEffect>(id, "fp_se_catch", "fp_se_catch_tip", "valkyrie");

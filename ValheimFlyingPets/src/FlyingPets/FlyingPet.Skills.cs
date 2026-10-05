@@ -5,8 +5,8 @@ namespace FlyingPets
 {
     /// <summary>
     ///     The active abilities (secondary attack in the saddle): the pegasus' thunder hoof and the raven's
-    ///     talon grab, and the valkyrie's catch. Run by the rider's game, which owns the pet; the effects are
-    ///     sent to everybody with FP_Fx.
+    ///     talon grab (the dragon's tidal breath is in FlyingPet.Dragon), and the valkyrie's catch. Run by
+    ///     the rider's game, which owns the pet; the effects are sent to everybody with FP_Fx.
     /// </summary>
     public partial class FlyingPet
     {
@@ -125,6 +125,12 @@ namespace FlyingPets
                         Fx.Catch(pos);
                         Util.SpawnEffect(Util.SummonEffects, pos + Vector3.up * m_scale, Quaternion.identity);
                         break;
+                    case FxBreath:
+                        BreathFx(args.x, args.y);
+                        break;
+                    case FxSplash:
+                        Fx.Splash(pos, args.x * Mathf.Max(1f, m_scale));
+                        break;
                 }
             }
             catch (System.Exception e)
@@ -154,28 +160,34 @@ namespace FlyingPets
             }
 
             bool thunder = active == PetAbility.ThunderHoof;
-            if (m_skill != SkillNone || m_seq != SeqNone || !(thunder ? ModConfig.ThunderHoof.Value : ModConfig.TalonGrab.Value))
+            bool breath = active == PetAbility.TidalBreath;
+            bool enabled = thunder ? ModConfig.ThunderHoof.Value : breath ? ModConfig.TidalBreath.Value : ModConfig.TalonGrab.Value;
+            if (m_skill != SkillNone || m_seq != SeqNone || !enabled)
             {
                 return;
             }
 
-            if (m_state != StateAir)
+            if (m_state != StateAir && !breath) // the breath works on the ground too
             {
                 player.Message(MessageHud.MessageType.Center, Texts.Get("fp_msg_need_air"));
                 return;
             }
 
-            float ready = thunder ? s_thunderReady : s_grabReady;
+            float ready = thunder ? s_thunderReady : breath ? s_breathReady : s_grabReady;
             if (Time.time < ready)
             {
                 player.Message(MessageHud.MessageType.Center, Texts.Get("fp_msg_cooldown",
-                    Texts.Get(thunder ? "fp_se_thunder" : "fp_se_grab"), Mathf.CeilToInt(ready - Time.time)));
+                    Texts.Get(thunder ? "fp_se_thunder" : breath ? "fp_se_breath" : "fp_se_grab"), Mathf.CeilToInt(ready - Time.time)));
                 return;
             }
 
             if (thunder)
             {
                 BeginDive(player);
+            }
+            else if (breath)
+            {
+                BeginBreath(player);
             }
             else
             {

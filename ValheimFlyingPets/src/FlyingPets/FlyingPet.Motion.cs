@@ -121,7 +121,7 @@ namespace FlyingPets
                 }
             }
 
-            if (m_skill != SkillNone && (m_localRider == null || m_state != StateAir))
+            if (m_skill != SkillNone && (m_localRider == null || (m_state != StateAir && m_skill != SkillBreath)))
             {
                 StopSkill();
             }
@@ -149,6 +149,16 @@ namespace FlyingPets
             }
 
             Integrate(c, dt, pos, moved, alt, groundY, waterY, overWater);
+            if (m_skill == SkillBreath)
+            {
+                BreathStep(dt);
+            }
+
+            if (m_state == StateAir && m_localRider != null && m_attachedLocal && Has(PetAbility.Fisher))
+            {
+                FisherStep(dt, pos, overWater, waterY, waterY - groundY);
+            }
+
             WriteState();
         }
 

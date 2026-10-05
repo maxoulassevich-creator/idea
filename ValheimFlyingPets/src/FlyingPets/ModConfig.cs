@@ -16,6 +16,7 @@ namespace FlyingPets
         private const string SecLooks = "6 - Looks";
         private const string SecPegasus = "7 - Pegasus abilities";
         private const string SecRaven = "8 - Raven abilities";
+        private const string SecDragon = "9 - Dragon abilities";
 
         public static ConfigEntry<bool> PitchFollowsCamera;
         public static ConfigEntry<float> PitchDeadZone;
@@ -72,6 +73,17 @@ namespace FlyingPets
         public static ConfigEntry<float> GrabMaxHold;
         public static ConfigEntry<float> GrabMaxRadius;
         public static ConfigEntry<float> GrabLethalHeight;
+
+        public static ConfigEntry<float> SeaTruceRadius;
+        public static ConfigEntry<float> LivingWaterMultiplier;
+        public static ConfigEntry<float> LivingWaterRadius;
+        public static ConfigEntry<float> FisherInterval;
+        public static ConfigEntry<float> FisherHeight;
+        public static ConfigEntry<bool> SteamingScales;
+        public static ConfigEntry<bool> TidalBreath;
+        public static ConfigEntry<float> BreathDamage;
+        public static ConfigEntry<float> BreathRange;
+        public static ConfigEntry<float> BreathCooldown;
 
         public static void Init(ConfigFile cfg)
         {
@@ -168,6 +180,27 @@ namespace FlyingPets
                 "(0 = as big as a troll). Bosses and players are never grabbed.");
             GrabLethalHeight = cfg.Bind(SecRaven, "TalonGrabLethalHeight", 30f,
                 "Talon grab: a creature dropped from this height dies; from 6 m it is unharmed, in between it is hurt, m.");
+
+            SeaTruceRadius = cfg.Bind(SecDragon, "SeaTruceRadius", 40f,
+                "Sea truce: sea monsters (serpents) keep at least this far from a water dragon unless they were hurt " +
+                "in the last 20 seconds, m (0 = off).");
+            LivingWaterMultiplier = cfg.Bind(SecDragon, "LivingWaterRegenMultiplier", 2f,
+                "Living water: while you are Wet in the dragon's saddle or near a water dragon, health comes back this many " +
+                "times faster (1 = off).");
+            LivingWaterRadius = cfg.Bind(SecDragon, "LivingWaterRadius", 30f, "Living water: how near the dragon, m.");
+            FisherInterval = cfg.Bind(SecDragon, "FisherSeconds", 22f,
+                "Fisher: skimming low and fast over water, the dragon brings up a fish about this often, s (0 = off). " +
+                "The spray also makes you Wet.");
+            FisherHeight = cfg.Bind(SecDragon, "FisherHeight", 5f, "Fisher: how low over the water the dragon must fly, m.");
+            SteamingScales = cfg.Bind(SecDragon, "SteamingScales", true,
+                "Steaming scales: you do not catch fire (Burning) while you sit in the dragon's saddle.");
+            TidalBreath = cfg.Bind(SecDragon, "TidalBreath", true,
+                "Tidal breath (secondary attack in the saddle, on the ground or in flight): a jet of icy water from the " +
+                "dragon's jaws that hurts, pushes back and soaks everything in front of it.");
+            BreathDamage = cfg.Bind(SecDragon, "TidalBreathDamage", 12f,
+                "Tidal breath: damage of one gush (frost and blunt); the jet gushes 8 times over 2 seconds.");
+            BreathRange = cfg.Bind(SecDragon, "TidalBreathRange", 16f, "Tidal breath: how far the jet reaches, m.");
+            BreathCooldown = cfg.Bind(SecDragon, "TidalBreathCooldown", 40f, "Tidal breath: cooldown, s.");
         }
     }
 }

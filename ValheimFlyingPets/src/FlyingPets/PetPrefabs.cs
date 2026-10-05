@@ -141,6 +141,17 @@ namespace FlyingPets
                 mat.SetColor("_EmissionColor", Color.black);
             }
 
+            if (asset.Emission != null && mat.HasProperty("_EmissionMap") && mat.HasProperty("_EmissionColor"))
+            {
+                // glowing scales: only where the shader takes an emission map (the albedo carries a hint of it anyway)
+                mat.SetTexture("_EmissionMap", asset.Emission);
+                mat.SetTextureScale("_EmissionMap", Vector2.one);
+                mat.SetTextureOffset("_EmissionMap", Vector2.zero);
+                mat.SetColor("_EmissionColor", new Color(0.8f, 0.8f, 0.8f, 1f));
+                mat.EnableKeyword("_EMISSION");
+                mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+            }
+
             if (mat.HasProperty("_Metallic"))
             {
                 mat.SetFloat("_Metallic", 0f);
@@ -271,7 +282,16 @@ namespace FlyingPets
             smr.rootBone = bones[bodyIndex];
             smr.quality = SkinQuality.Bone4;
             smr.updateWhenOffscreen = false;
-            smr.localBounds = new Bounds(Vector3.zero, new Vector3(9f, 7f, 9f));
+            // culling box around the body: everything a wing or a long tail can reach in any pose
+            float reach = 0f;
+            for (int c = 0; c < 8; c++)
+            {
+                var corner = new Vector3((c & 1) != 0 ? hi.x : lo.x, (c & 2) != 0 ? hi.y : lo.y, (c & 4) != 0 ? hi.z : lo.z);
+                reach = Mathf.Max(reach, (corner - bodyPivot).magnitude);
+            }
+
+            float box = 2f * reach + 1f;
+            smr.localBounds = new Bounds(Vector3.zero, new Vector3(Mathf.Max(9f, box), Mathf.Max(7f, box), Mathf.Max(9f, box)));
             smr.shadowCastingMode = ShadowCastingMode.On;
             smr.receiveShadows = true;
             var bodyMat = BodyMaterial(asset, template);

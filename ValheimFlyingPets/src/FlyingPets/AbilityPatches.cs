@@ -129,7 +129,10 @@ namespace FlyingPets
         }
     }
 
-    /// <summary>Under the wing: rain and frost do not reach the pegasus rider.</summary>
+    /// <summary>
+    ///     Under the wing: rain and frost do not reach the pegasus rider. Steaming scales: the dragon rider
+    ///     does not catch fire.
+    /// </summary>
     [HarmonyPatch]
     internal static class UnderWingPatch
     {
@@ -149,7 +152,7 @@ namespace FlyingPets
 
         private static bool Prefix(SEMan __instance, StatusEffect __0, ref StatusEffect __result)
         {
-            if (!Passives.UnderWingActive || __0 == null)
+            if (!(Passives.UnderWingActive || Passives.ScalesActive) || __0 == null)
             {
                 return true;
             }
@@ -160,8 +163,7 @@ namespace FlyingPets
                 return true;
             }
 
-            int hash = __0.NameHash();
-            if (hash == SEMan.s_statusEffectWet || hash == SEMan.s_statusEffectCold || hash == SEMan.s_statusEffectFreezing)
+            if (Passives.Blocks(__0.NameHash()))
             {
                 __result = null;
                 return false;

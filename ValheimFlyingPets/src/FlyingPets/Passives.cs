@@ -15,7 +15,7 @@ namespace FlyingPets
     {
         private const int ModeHeld = 1;     // in the raven's talons: no AI, no physics
         private const int ModeFrozen = 2;   // under the raven's shadow: stands still and stares
-        private const int ModeFlee = 3;     // undead near a pegasus: keeps away
+        private const int ModeFlee = 3;     // undead near a pegasus, serpents near a water dragon: keep away
 
         private sealed class AiOverride
         {
@@ -40,9 +40,11 @@ namespace FlyingPets
         private static float s_fallTop;
         private static float s_catchReady;
         private static float s_muninnTimer;
+        private static float s_livingCheck;
 
         internal static bool HuginnActive;
         internal static bool UnderWingActive;
+        internal static bool ScalesActive;
 
         // ------------------------------------------------------------------ private game members
         private static bool s_reflected;
@@ -127,7 +129,10 @@ namespace FlyingPets
             }
         }
 
-        /// <summary>Pets that are around: the undead flee from pegasi, prey freezes under flying ravens.</summary>
+        /// <summary>
+        ///     Pets that are around: the undead flee from pegasi, serpents from water dragons, prey freezes
+        ///     under flying ravens.
+        /// </summary>
         private static void Scan(float now)
         {
             // forget what ran out (the held ones are released by their raven)
@@ -163,6 +168,7 @@ namespace FlyingPets
             }
 
             float lightRadius = ModConfig.ValhallaRadius.Value;
+            float truceRadius = ModConfig.SeaTruceRadius.Value;
             float freeze = ModConfig.PreyFreezeSeconds.Value;
             foreach (var pet in FlyingPet.Instances)
             {
@@ -179,6 +185,26 @@ namespace FlyingPets
                     foreach (var c in s_tmpChars)
                     {
                         if (c == null || c.IsPlayer() || c.GetFaction() != Character.Faction.Undead || c.IsBoss() ||
+                            c.IsTamed() || c.IsDead())
+                        {
+                            continue;
+                        }
+
+                        var ai = c.GetBaseAI() as MonsterAI;
+                        if (ai != null)
+                        {
+                            Set(ai, c, ModeFlee, pp, now + 0.6f);
+                        }
+                    }
+                }
+
+                if (truceRadius > 0f && pet.Has(PetAbility.SeaTruce))
+                {
+                    s_tmpChars.Clear();
+                    Character.GetCharactersInRange(pp, truceRadius * Mathf.Max(1f, pet.Scale), s_tmpChars);
+                    foreach (var c in s_tmpChars)
+                    {
+                        if (c == null || c.IsPlayer() || c.GetFaction() != Character.Faction.SeaMonsters || c.IsBoss() ||
                             c.IsTamed() || c.IsDead())
                         {
                             continue;
@@ -397,6 +423,7 @@ namespace FlyingPets
             var player = Player.m_localPlayer;
             HuginnActive = false;
             UnderWingActive = false;
+            ScalesActive = false;
             if (player == null)
             {
                 s_rideKey = null;
@@ -445,10 +472,66 @@ namespace FlyingPets
                         seman.RemoveStatusEffect(SEMan.s_statusEffectFreezing, true);
                     }
                 }
+
+                ScalesActive = mount.Has(PetAbility.SteamingScales) && ModConfig.SteamingScales.Value;
+                if (ScalesActive && player.GetSEMan().HaveStatusEffect(SEMan.s_statusEffectBurning))
+                {
+                    player.GetSEMan().RemoveStatusEffect(SEMan.s_statusEffectBurning, true);
+                }
             }
 
+            LivingWater(player, mount);
             ValkyrieCatch(player, mount, now);
             Muninn(player, mount, now);
+        }
+
+        /// <summary>The status effects the abilities keep off the local player (under the wing, steaming scales).</summary>
+        internal static bool Blocks(int hash)
+        {
+            if (UnderWingActive &&
+                (hash == SEMan.s_statusEffectWet || hash == SEMan.s_statusEffectCold || hash == SEMan.s_statusEffectFreezing))
+            {
+                return true;
+            }
+
+            return ScalesActive && hash == SEMan.s_statusEffectBurning;
+        }
+
+        // ------------------------------------------------------------------ living water
+        private static void LivingWater(Player player, FlyingPet mount)
+        {
+            s_livingCheck -= Time.deltaTime;
+            if (s_livingCheck > 0f)
+            {
+                return;
+            }
+
+            s_livingCheck = 0.5f;
+            bool on = false;
+            if (ModConfig.LivingWaterMultiplier.Value > 1f && player.GetSEMan().HaveStatusEffect(SEMan.s_statusEffectWet))
+            {
+                if (mount != null)
+                {
+                    on = mount.Has(PetAbility.LivingWater);
+                }
+                else
+                {
+                    float r = Mathf.Max(1f, ModConfig.LivingWaterRadius.Value);
+                    Vector3 p = player.transform.position;
+                    foreach (var pet in FlyingPet.Instances)
+                    {
+                        float reach = pet != null ? r * Mathf.Max(1f, pet.Scale) : 0f;
+                        if (pet != null && pet.IsAround && pet.Has(PetAbility.LivingWater) &&
+                            (pet.transform.position - p).sqrMagnitude < reach * reach)
+                        {
+                            on = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            AbilityEffects.SetLiving(player, on);
         }
 
         // ------------------------------------------------------------------ valkyrie's catch

@@ -12,6 +12,7 @@ namespace FlyingPets
             { "item_fp_staff_desc", "Calls a winged mount.\nAttack: summon the mount or call it to you.\nSecondary attack: send it away (or pick another mount)." },
             { "fp_pet_pegasus", "Pegasus" },
             { "fp_pet_raven", "Raven" },
+            { "fp_pet_dragon", "Water Dragon" },
             { "fp_hover_ride", "Ride" },
             { "fp_hover_release", "Send away" },
             { "fp_hover_busy", "(someone is riding)" },
@@ -29,6 +30,9 @@ namespace FlyingPets
             { "fp_msg_controls", "W - forward (where you look)   Shift - faster   Space - take off / climb   Ctrl - descend / land   E - dismount" },
             { "fp_msg_skill_thunder_hoof", "Mouse wheel (in flight) - Thunder hoof" },
             { "fp_msg_skill_talon_grab", "Mouse wheel (in flight) - Talon grab / let go" },
+            { "fp_msg_skill_tidal_breath", "Mouse wheel - Tidal breath" },
+            { "fp_msg_fish", "Fisher: the dragon caught {0}" },
+            { "fp_msg_fish_full", "Fisher: no room for the fish, the dragon lets it go" },
             { "fp_msg_need_air", "Take off first" },
             { "fp_msg_cooldown", "{0}: {1} s more" },
             { "fp_msg_grab_none", "Nobody to grab - fly low over a creature" },
@@ -51,6 +55,11 @@ namespace FlyingPets
             { "fp_se_hold_tip", "Secondary attack: let go. From up high the prey will not survive the fall; near the ground it is set down gently." },
             { "fp_se_catch", "Valkyrie's catch" },
             { "fp_se_catch_tip", "The pegasus needs time before it can catch you again." },
+            { "fp_se_dragon_tip", "Sea truce: serpents keep away from the dragon unless provoked.\nLiving water: while you are wet near the dragon, your health comes back faster.\nFisher: skim low and fast over water and the dragon brings up fish.\nSteaming scales: you do not catch fire in the saddle.\nSecondary attack: Tidal breath." },
+            { "fp_se_breath", "Tidal breath" },
+            { "fp_se_breath_tip", "The dragon draws in the sea again." },
+            { "fp_se_living", "Living water" },
+            { "fp_se_living_tip", "The dragon's water heals: your health comes back faster while you are wet." },
         };
 
         private static readonly Dictionary<string, string> Russian = new Dictionary<string, string>
@@ -59,6 +68,7 @@ namespace FlyingPets
             { "item_fp_staff_desc", "Призывает крылатого скакуна.\nАтака: призвать или позвать к себе.\nВторичная атака: отпустить (или выбрать другого скакуна)." },
             { "fp_pet_pegasus", "Пегас" },
             { "fp_pet_raven", "Ворон" },
+            { "fp_pet_dragon", "Водяной дракон" },
             { "fp_hover_ride", "Оседлать" },
             { "fp_hover_release", "Отпустить" },
             { "fp_hover_busy", "(на нём кто-то сидит)" },
@@ -76,6 +86,9 @@ namespace FlyingPets
             { "fp_msg_controls", "W - вперёд (куда смотрите)   Shift - быстрее   Пробел - взлёт / вверх   Ctrl - вниз / посадка   E - спешиться" },
             { "fp_msg_skill_thunder_hoof", "Колесо мыши (в полёте) - Громовое копыто" },
             { "fp_msg_skill_talon_grab", "Колесо мыши (в полёте) - Хватка / отпустить" },
+            { "fp_msg_skill_tidal_breath", "Колесо мыши - Дыхание прилива" },
+            { "fp_msg_fish", "Рыболов: дракон поймал {0}" },
+            { "fp_msg_fish_full", "Рыболов: рыбу некуда положить, дракон её отпустил" },
             { "fp_msg_need_air", "Сначала взлетите" },
             { "fp_msg_cooldown", "{0}: ещё {1} с" },
             { "fp_msg_grab_none", "Хватать некого - снизьтесь над существом" },
@@ -98,6 +111,11 @@ namespace FlyingPets
             { "fp_se_hold_tip", "Вторичная атака: отпустить. С высоты добыча не переживёт падения, у самой земли ворон опустит её бережно." },
             { "fp_se_catch", "Подхват валькирии" },
             { "fp_se_catch_tip", "Пегасу нужно время, прежде чем он снова сможет вас поймать." },
+            { "fp_se_dragon_tip", "Морское перемирие: морские змеи не трогают дракона, пока их не разозлить.\nЖивая вода: мокрым рядом с драконом здоровье восстанавливается быстрее.\nРыболов: летите низко и быстро над водой - дракон выхватывает рыбу.\nШипящая чешуя: в седле вы не загораетесь.\nВторичная атака: Дыхание прилива." },
+            { "fp_se_breath", "Дыхание прилива" },
+            { "fp_se_breath_tip", "Дракон снова набирает в грудь море." },
+            { "fp_se_living", "Живая вода" },
+            { "fp_se_living_tip", "Вода дракона лечит: пока вы мокрые, здоровье восстанавливается быстрее." },
         };
 
         public static void Register()

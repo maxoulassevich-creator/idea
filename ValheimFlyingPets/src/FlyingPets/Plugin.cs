@@ -19,7 +19,7 @@ namespace FlyingPets
     {
         public const string PluginGuid = "com.oulassevich.flyingpets";
         public const string PluginName = "FlyingPets";
-        public const string PluginVersion = "1.3.0";
+        public const string PluginVersion = "1.4.0";
 
         internal static ManualLogSource Log;
 
@@ -39,7 +39,7 @@ namespace FlyingPets
             TryPatch(typeof(HeldPhysicsPatch), "abilities: talon grab");
             TryPatch(typeof(HuginnExplorePatch), "abilities: Huginn");
             TryPatch(typeof(RavenFeastPatch), "abilities: ravens' feast");
-            TryPatch(typeof(UnderWingPatch), "abilities: under the wing");
+            TryPatch(typeof(UnderWingPatch), "abilities: under the wing, steaming scales");
 
             PrefabManager.OnVanillaPrefabsAvailable += OnVanillaPrefabsAvailable;
             Log.LogInfo(PluginName + " " + PluginVersion + " loaded.");

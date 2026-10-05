@@ -31,6 +31,7 @@ namespace FlyingPets
         public PetBoneJson[] bones;
         public string albedo;
         public string normal;
+        public string emission;     // optional glow texture (same atlas)
         public float[] seat;
         public int mountSide;
         public float[] eyeGlow;
@@ -70,6 +71,15 @@ namespace FlyingPets
         public float[] tailFan;
         public float tailRest;
         public float hop;
+        // long tails and a jaw (all optional): sway scale, a bend of every tail segment after the first,
+        // the jaw angle at rest and fully opened (degrees about +x)
+        public float tailSwing;
+        public float tailBend;
+        public float jawRest;
+        public float jawOpen;
+        // where a breath leaves the mouth: a point and a direction in the rest pose (model space)
+        public float[] mouth;
+        public float[] mouthDir;
 
         public float[] boundsMin;
         public float[] boundsMax;

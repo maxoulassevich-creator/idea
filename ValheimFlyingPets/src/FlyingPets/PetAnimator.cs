@@ -46,10 +46,11 @@ namespace FlyingPets
     }
 
     /// <summary>
-    ///     Procedural animation of a winged mount: a quadruped (pegasus) or a bird (raven). Every pose is
-    ///     built from rotations about the bone pivots (bones rest unrotated), authored for the right side
-    ///     and mirrored for the left with axis (x, -y, -z). Poses are blended per bone with quaternion
-    ///     slerp. Feather bones carry their own folded rotation and follow the fan of their wing or tail.
+    ///     Procedural animation of a winged mount: a quadruped (pegasus, dragon) or a bird (raven). Every
+    ///     pose is built from rotations about the bone pivots (bones rest unrotated), authored for the right
+    ///     side and mirrored for the left with axis (x, -y, -z). Poses are blended per bone with quaternion
+    ///     slerp. Feather and finger bones carry their own folded rotation and follow the fan of their wing
+    ///     or tail.
     /// </summary>
     internal sealed class PetAnimator
     {
@@ -65,7 +66,8 @@ namespace FlyingPets
         public readonly int BoneCount;
         public readonly int Body;
         private readonly int neck1, neck2, head;
-        private readonly int[] tail = new int[4];
+        public readonly int Jaw;
+        private readonly int[] tail;
         private readonly int[,] legF = new int[2, 4];
         private readonly int[,] legR = new int[2, 3];
         public readonly int[,] Wing = new int[2, 3];
@@ -91,7 +93,16 @@ namespace FlyingPets
             neck1 = asset.Bone("neck1");
             neck2 = asset.Bone("neck2");
             head = asset.Bone("head");
-            for (int i = 0; i < 4; i++)
+            Jaw = asset.Bone("jaw");
+            // tail0..tail3 always (missing ones are -1), longer tails up to tail7
+            int tails = 4;
+            while (tails < 8 && asset.Bone("tail" + tails) >= 0)
+            {
+                tails++;
+            }
+
+            tail = new int[tails];
+            for (int i = 0; i < tails; i++)
             {
                 tail[i] = asset.Bone("tail" + i);
             }
@@ -354,6 +365,15 @@ namespace FlyingPets
             SetFan(p, side, Mathf.Lerp(a.Fan, b.Fan, t));
         }
 
+        /// <summary>Opens the jaw (0 = at rest .. 1 = wide open); no-op for pets without one.</summary>
+        public void SetJaw(PetPose p, float open)
+        {
+            if (Jaw >= 0)
+            {
+                p.Q[Jaw] = Rot(X, Mathf.LerpUnclamped(m.jawRest, m.jawOpen > 0f ? m.jawOpen : 24f, open));
+            }
+        }
+
         // ------------------------------------------------------------------ poses
         /// <summary>Standing: breathing, a slow look around, tail swish, wings folded.</summary>
         public void Idle(float t, PetPose p)
@@ -368,11 +388,14 @@ namespace FlyingPets
             Set(p, neck1, Rot(Y, 4f * look) * Rot(X, -2f + 1.5f * b));
             Set(p, neck2, Rot(Y, 5f * look) * Rot(X, -1f + b));
             Set(p, head, Rot(Y, 4f * look) * Rot(X, 2f - 1.5f * b));
-            Set(p, tail[0], Rot(Y, 6f * Mathf.Sin(sw)) * Rot(X, m.tailRest));
-            Set(p, tail[1], Rot(Y, 8f * Mathf.Sin(sw - 0.7f)));
-            Set(p, tail[2], Rot(Y, 10f * Mathf.Sin(sw - 1.4f)));
-            Set(p, tail[3], Rot(Y, 12f * Mathf.Sin(sw - 2.1f)));
+            float swing = m.tailSwing > 0f ? m.tailSwing : 1f;
+            for (int k = 0; k < tail.Length; k++)
+            {
+                Set(p, tail[k], Rot(Y, swing * (6f + 2f * k) * Mathf.Sin(sw - 0.7f * k)) * Rot(X, k == 0 ? m.tailRest : m.tailBend));
+            }
+
             SetTailFan(p, Arr(m.tailFan, 0, 1f));
+            Set(p, Jaw, Rot(X, m.jawRest));
         }
 
         /// <summary>Flapping flight at wing-beat phase ph (0..1); legs tucked, neck stretched.</summary>
@@ -408,11 +431,16 @@ namespace FlyingPets
             Set(p, neck1, Rot(X, Arr(m.neckFly, 0, 22f) + 1.5f * s));
             Set(p, neck2, Rot(X, Arr(m.neckFly, 1, 8f)));
             Set(p, head, Rot(X, Arr(m.neckFly, 2, -18f)));
+            Set(p, Jaw, Rot(X, m.jawRest));
             float tw = Tau * ph;
+            float swing = m.tailSwing > 0f ? m.tailSwing : 1f;
             Set(p, tail[0], Rot(X, Arr(m.tailFly, 0, 22f)));
-            Set(p, tail[1], Rot(Y, 5f * Mathf.Sin(tw)) * Rot(X, Arr(m.tailFly, 1, 4f)));
-            Set(p, tail[2], Rot(Y, 6f * Mathf.Sin(tw - 0.8f)) * Rot(X, Arr(m.tailFly, 1, 4f)));
-            Set(p, tail[3], Rot(Y, 7f * Mathf.Sin(tw - 1.6f)) * Rot(X, Arr(m.tailFly, 2, 0f)));
+            for (int k = 1; k < tail.Length; k++)
+            {
+                float lift = k < 3 ? Arr(m.tailFly, 1, 4f) : Arr(m.tailFly, 2, 0f);
+                Set(p, tail[k], Rot(Y, swing * (4f + k) * Mathf.Sin(tw - 0.8f * (k - 1))) * Rot(X, lift));
+            }
+
             SetTailFan(p, Arr(m.tailFan, 1, 0f));
             p.Root = new Vector3(0f, 0.07f * s, 0f);
         }
