@@ -13,6 +13,7 @@ namespace FlyingPets
             { "fp_pet_pegasus", "Pegasus" },
             { "fp_pet_raven", "Raven" },
             { "fp_pet_dragon", "Water Dragon" },
+            { "fp_pet_prowler", "Sand Prowler" },
             { "fp_hover_ride", "Ride" },
             { "fp_hover_release", "Send away" },
             { "fp_hover_busy", "(someone is riding)" },
@@ -31,6 +32,7 @@ namespace FlyingPets
             { "fp_msg_skill_thunder_hoof", "Mouse wheel (in flight) - Thunder hoof" },
             { "fp_msg_skill_talon_grab", "Mouse wheel (in flight) - Talon grab / let go" },
             { "fp_msg_skill_tidal_breath", "Mouse wheel - Tidal breath" },
+            { "fp_msg_skill_sandstorm", "Mouse wheel - Sandstorm" },
             { "fp_msg_fish", "Fisher: the dragon caught {0}" },
             { "fp_msg_fish_full", "Fisher: no room for the fish, the dragon lets it go" },
             { "fp_msg_need_air", "Take off first" },
@@ -60,6 +62,11 @@ namespace FlyingPets
             { "fp_se_breath_tip", "The dragon draws in the sea again." },
             { "fp_se_living", "Living water" },
             { "fp_se_living_tip", "The dragon's water heals: your health comes back faster while you are wet." },
+            { "fp_se_prowler_tip", "Scavenger's nose: you sense buried treasure and silver, as with a Wishbone.\nQuicksand: enemies near the prowler on the ground sink in and slow down.\nDesert endurance: your food lasts twice as long in the saddle.\nSun-baked hide: fire and poison do half damage to you.\nSecondary attack: Sandstorm." },
+            { "fp_se_storm", "Sandstorm" },
+            { "fp_se_storm_tip", "The prowler gets its breath back." },
+            { "fp_se_quicksand", "Quicksand" },
+            { "fp_se_quicksand_tip", "Sinking in sand: slowed down." },
         };
 
         private static readonly Dictionary<string, string> Russian = new Dictionary<string, string>
@@ -69,6 +76,7 @@ namespace FlyingPets
             { "fp_pet_pegasus", "Пегас" },
             { "fp_pet_raven", "Ворон" },
             { "fp_pet_dragon", "Водяной дракон" },
+            { "fp_pet_prowler", "Песчаный выползень" },
             { "fp_hover_ride", "Оседлать" },
             { "fp_hover_release", "Отпустить" },
             { "fp_hover_busy", "(на нём кто-то сидит)" },
@@ -87,6 +95,7 @@ namespace FlyingPets
             { "fp_msg_skill_thunder_hoof", "Колесо мыши (в полёте) - Громовое копыто" },
             { "fp_msg_skill_talon_grab", "Колесо мыши (в полёте) - Хватка / отпустить" },
             { "fp_msg_skill_tidal_breath", "Колесо мыши - Дыхание прилива" },
+            { "fp_msg_skill_sandstorm", "Колесо мыши - Песчаная буря" },
             { "fp_msg_fish", "Рыболов: дракон поймал {0}" },
             { "fp_msg_fish_full", "Рыболов: рыбу некуда положить, дракон её отпустил" },
             { "fp_msg_need_air", "Сначала взлетите" },
@@ -116,6 +125,11 @@ namespace FlyingPets
             { "fp_se_breath_tip", "Дракон снова набирает в грудь море." },
             { "fp_se_living", "Живая вода" },
             { "fp_se_living_tip", "Вода дракона лечит: пока вы мокрые, здоровье восстанавливается быстрее." },
+            { "fp_se_prowler_tip", "Нюх падальщика: вы чуете закопанные сокровища и серебро, как с Вишбоном.\nЗыбучий песок: враги рядом с выползнем на земле вязнут и замедляются.\nВыносливость пустыни: в седле еда тратится вдвое медленнее.\nОпалённая шкура: огонь и яд наносят вам вдвое меньше урона.\nВторичная атака: Песчаная буря." },
+            { "fp_se_storm", "Песчаная буря" },
+            { "fp_se_storm_tip", "Выползень переводит дух." },
+            { "fp_se_quicksand", "Зыбучий песок" },
+            { "fp_se_quicksand_tip", "Увяз в песке: движения замедлены." },
         };
 
         public static void Register()

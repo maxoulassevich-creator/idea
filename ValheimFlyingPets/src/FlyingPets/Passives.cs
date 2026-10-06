@@ -16,6 +16,7 @@ namespace FlyingPets
         private const int ModeHeld = 1;     // in the raven's talons: no AI, no physics
         private const int ModeFrozen = 2;   // under the raven's shadow: stands still and stares
         private const int ModeFlee = 3;     // undead near a pegasus, serpents near a water dragon: keep away
+        private const int ModeBlind = 4;    // inside a prowler's sandstorm: cannot see, stumbles about
 
         private sealed class AiOverride
         {
@@ -23,6 +24,8 @@ namespace FlyingPets
             public int Mode;
             public Vector3 From;
             public float Until;
+            public float Turn;      // blind: when to stumble off in another direction
+            public Vector3 Dir;
         }
 
         /// <summary>Creatures grabbed by a raven ridden on this game (we own them while they hang there).</summary>
@@ -41,6 +44,11 @@ namespace FlyingPets
         private static float s_catchReady;
         private static float s_muninnTimer;
         private static float s_livingCheck;
+        private static StatusEffect s_wishbone;
+        private static bool s_wishboneLooked;
+        private static bool s_noseOn;
+        private static AccessTools.FieldRef<Player, List<Player.Food>> s_foods;
+        private static bool s_foodsLooked;
 
         internal static bool HuginnActive;
         internal static bool UnderWingActive;
@@ -131,7 +139,7 @@ namespace FlyingPets
 
         /// <summary>
         ///     Pets that are around: the undead flee from pegasi, serpents from water dragons, prey freezes
-        ///     under flying ravens.
+        ///     under flying ravens, everything inside a prowler's sandstorm is blinded.
         /// </summary>
         private static void Scan(float now)
         {
@@ -214,6 +222,25 @@ namespace FlyingPets
                         if (ai != null)
                         {
                             Set(ai, c, ModeFlee, pp, now + 0.6f);
+                        }
+                    }
+                }
+
+                if (pet.IsStorming)
+                {
+                    s_tmpChars.Clear();
+                    Character.GetCharactersInRange(pp, pet.StormRadius, s_tmpChars);
+                    foreach (var c in s_tmpChars)
+                    {
+                        if (c == null || c.IsPlayer() || c.IsBoss() || c.IsTamed() || c.IsDead() || IsHeld(c))
+                        {
+                            continue;
+                        }
+
+                        var ai = c.GetBaseAI();
+                        if (ai != null)
+                        {
+                            Set(ai, c, ModeBlind, pp, now + 0.6f);
                         }
                     }
                 }
@@ -368,6 +395,34 @@ namespace FlyingPets
                     return false;
                 }
 
+                case ModeBlind:
+                {
+                    if (now > o.Until)
+                    {
+                        s_ai.Remove(ai);
+                        return true;
+                    }
+
+                    Reflect();
+                    var blind = ai as MonsterAI;
+                    if (blind != null && s_targetCreature != null)
+                    {
+                        s_targetCreature(blind) = null;
+                        s_targetStatic(blind) = null;
+                    }
+
+                    if (now > o.Turn || o.Dir.sqrMagnitude < 0.01f)
+                    {
+                        o.Turn = now + UnityEngine.Random.Range(0.8f, 1.8f);
+                        Vector2 r = UnityEngine.Random.insideUnitCircle;
+                        o.Dir = r.sqrMagnitude > 1e-4f ? new Vector3(r.x, 0f, r.y).normalized : ai.transform.forward;
+                    }
+
+                    ai.MoveTowards(o.Dir, false);
+                    result = true;
+                    return false;
+                }
+
                 case ModeFlee:
                 {
                     if (now > o.Until || ai.IsSleeping())
@@ -427,6 +482,7 @@ namespace FlyingPets
             if (player == null)
             {
                 s_rideKey = null;
+                s_noseOn = false;
                 return;
             }
 
@@ -481,8 +537,127 @@ namespace FlyingPets
             }
 
             LivingWater(player, mount);
+            ScavengerNose(player, mount);
+            DesertEndurance(player, mount);
             ValkyrieCatch(player, mount, now);
             Muninn(player, mount, now);
+        }
+
+        // ------------------------------------------------------------------ scavenger's nose
+        /// <summary>In the prowler's saddle the rider senses buried treasure: the Wishbone's own finder effect.</summary>
+        private static void ScavengerNose(Player player, FlyingPet mount)
+        {
+            bool want = mount != null && mount.Has(PetAbility.ScavengerNose) && ModConfig.ScavengerNose.Value;
+            if (!want && !s_noseOn)
+            {
+                return;
+            }
+
+            var se = Wishbone();
+            if (se == null)
+            {
+                return;
+            }
+
+            var seman = player.GetSEMan();
+            int hash = se.NameHash();
+            if (want && !s_noseOn)
+            {
+                if (!seman.HaveStatusEffect(hash))
+                {
+                    seman.AddStatusEffect(se, false, 0, 0f);
+                    s_noseOn = true;
+                }
+            }
+            else if (!want && s_noseOn)
+            {
+                s_noseOn = false;
+                if (!WearsEffect(player, hash))
+                {
+                    seman.RemoveStatusEffect(hash, true);
+                }
+            }
+        }
+
+        private static StatusEffect Wishbone()
+        {
+            if (s_wishbone != null || s_wishboneLooked)
+            {
+                return s_wishbone;
+            }
+
+            if (ObjectDB.instance == null)
+            {
+                return null;
+            }
+
+            s_wishboneLooked = true;
+            var prefab = ObjectDB.instance.GetItemPrefab("Wishbone");
+            var drop = prefab != null ? prefab.GetComponent<ItemDrop>() : null;
+            s_wishbone = drop != null && drop.m_itemData != null && drop.m_itemData.m_shared != null
+                ? drop.m_itemData.m_shared.m_equipStatusEffect
+                : null;
+            if (s_wishbone == null)
+            {
+                FlyingPetsPlugin.Log.LogWarning("Scavenger's nose: the Wishbone's effect was not found");
+            }
+
+            return s_wishbone;
+        }
+
+        /// <summary>Does something the player wears give this effect (then it is not ours to take away)?</summary>
+        private static bool WearsEffect(Player player, int hash)
+        {
+            foreach (var item in player.GetInventory().GetEquippedItems())
+            {
+                var se = item != null && item.m_shared != null ? item.m_shared.m_equipStatusEffect : null;
+                if (se != null && se.NameHash() == hash)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        // ------------------------------------------------------------------ desert endurance
+        /// <summary>In the prowler's saddle the food wears off more slowly: part of every second is given back.</summary>
+        private static void DesertEndurance(Player player, FlyingPet mount)
+        {
+            float rate = Mathf.Clamp01(ModConfig.DesertFoodRate.Value);
+            if (mount == null || rate >= 1f || !mount.Has(PetAbility.DesertEndurance))
+            {
+                return;
+            }
+
+            if (!s_foodsLooked)
+            {
+                s_foodsLooked = true;
+                try
+                {
+                    s_foods = AccessTools.FieldRefAccess<Player, List<Player.Food>>("m_foods");
+                }
+                catch (Exception e)
+                {
+                    FlyingPetsPlugin.Log.LogWarning("Desert endurance cannot reach the food (" + e.Message + ")");
+                }
+            }
+
+            if (s_foods == null)
+            {
+                return;
+            }
+
+            float give = Time.deltaTime * (1f - rate);
+            foreach (var food in s_foods(player))
+            {
+                if (food == null || food.m_item == null || food.m_item.m_shared == null)
+                {
+                    continue;
+                }
+
+                food.m_time = Mathf.Min(food.m_time + give, food.m_item.m_shared.m_foodBurnTime);
+            }
         }
 
         /// <summary>The status effects the abilities keep off the local player (under the wing, steaming scales).</summary>

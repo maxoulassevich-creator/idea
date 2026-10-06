@@ -453,7 +453,7 @@ namespace FlyingPets
             }
         }
 
-        private static readonly string[] BuiltInOrder = { "pegasus", "raven", "dragon" };
+        private static readonly string[] BuiltInOrder = { "pegasus", "raven", "dragon", "prowler" };
 
         private static int Rank(string key)
         {

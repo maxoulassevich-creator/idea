@@ -478,10 +478,12 @@ namespace FlyingPets
             float mix = Smooth(trot);
             bool hop = m.hop > 0f;
             // walk: rR 0, fR .25, rL .5, fL .75   trot: fR+rL 0, fL+rR .5   hop: rR+rL .5
+            // a biped that does not hop keeps its two legs half a stride apart all the way
+            bool biped = legF[Right, 0] < 0 && !hop;
             LegPair(p, Right, true, gaitPhase + Mathf.Lerp(0.25f, 0f, mix), duty, amp);
             LegPair(p, Left, true, gaitPhase + Mathf.Lerp(0.75f, 0.5f, mix), duty, amp);
-            LegPair(p, Right, false, gaitPhase + Mathf.Lerp(0f, 0.5f, mix), duty, amp);
-            LegPair(p, Left, false, gaitPhase + Mathf.Lerp(0.5f, hop ? 0.5f : 0f, mix), duty, amp);
+            LegPair(p, Right, false, biped ? gaitPhase : gaitPhase + Mathf.Lerp(0f, 0.5f, mix), duty, amp);
+            LegPair(p, Left, false, biped ? gaitPhase + 0.5f : gaitPhase + Mathf.Lerp(0.5f, hop ? 0.5f : 0f, mix), duty, amp);
             float nod = Mathf.Sin(2f * Tau * gaitPhase);
             Set(p, neck1, Rot(X, -2f + 3f * nod * (1f - 0.5f * trot)));
             Set(p, head, Rot(X, 2f - 2f * nod));

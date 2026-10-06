@@ -195,6 +195,17 @@ namespace FlyingPets
                 m_anim.SetJaw(m_pOut, PetAnimator.Smooth(m_breathW));
             }
 
+            // the sandstorm: the wings beat hard where it stands, the jaws open in a roar
+            m_stormW = Mathf.MoveTowards(m_stormW, skill == SkillStorm ? 1f : 0f, dt * 3f);
+            if (m_stormW > 0.001f)
+            {
+                float w = PetAnimator.Smooth(m_stormW);
+                m_anim.Fly(m_flap, amp * 1.15f, m_pSkill);
+                PetAnimator.Blend(m_pOut, m_pOut, m_pSkill, w, m_anim.WingBones[0]);
+                PetAnimator.Blend(m_pOut, m_pOut, m_pSkill, w, m_anim.WingBones[1]);
+                m_anim.SetJaw(m_pOut, 0.55f * w);
+            }
+
             // ---- apply
             for (int i = 0; i < m_bones.Length; i++)
             {

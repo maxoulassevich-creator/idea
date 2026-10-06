@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Jotunn.Entities;
+using Jotunn.Managers;
 using UnityEngine;
 
 namespace FlyingPets
@@ -17,6 +19,10 @@ namespace FlyingPets
         public const string Hold = "hold";
         public const string Catch = "catch";
         public const string Breath = "breath";
+        public const string Storm = "storm";
+
+        /// <summary>The prowler's quicksand: a slowing effect every game knows (registered in ObjectDB).</summary>
+        public static readonly int QuicksandHash = "FP_SE_quicksand".GetStableHashCode();
 
         private static readonly Dictionary<string, Sprite> Icons = new Dictionary<string, Sprite>();
         private static readonly Dictionary<string, StatusEffect> Effects = new Dictionary<string, StatusEffect>();
@@ -98,7 +104,29 @@ namespace FlyingPets
             return t;
         }
 
-        /// <summary>In the saddle: the pet's passives, and for the pegasus the extra carry weight.</summary>
+        /// <summary>
+        ///     Status effects that other games must be able to apply by their hash (the creature's owner adds them):
+        ///     registered with Jotunn so they are in every ObjectDB. Called once, while the mod starts.
+        /// </summary>
+        public static void RegisterShared()
+        {
+            try
+            {
+                var se = Make<SE_Stats>("quicksand", "fp_se_quicksand", "fp_se_quicksand_tip", "quicksand");
+                se.m_speedModifier = -Mathf.Clamp(ModConfig.QuicksandSlow.Value, 0f, 0.9f);
+                se.m_ttl = 2.5f;
+                ItemManager.Instance.AddStatusEffect(new CustomStatusEffect(se, false));
+            }
+            catch (Exception e)
+            {
+                FlyingPetsPlugin.Log.LogWarning("Quicksand status effect could not be registered: " + e.Message);
+            }
+        }
+
+        /// <summary>
+        ///     In the saddle: the pet's passives, the pegasus' extra carry weight, the prowler's resistance to fire
+        ///     and poison.
+        /// </summary>
         public static void SetRide(Player player, PetAsset asset, bool on)
         {
             if (player == null || asset == null)
@@ -116,6 +144,13 @@ namespace FlyingPets
                 else
                 {
                     se.m_addMaxCarryWeight = Mathf.Max(0f, ModConfig.CarryBonus.Value);
+                }
+
+                se.m_mods = new List<HitData.DamageModPair>();
+                if (asset.Abilities.Contains(PetAbility.SunHide) && ModConfig.SunHide.Value)
+                {
+                    se.m_mods.Add(new HitData.DamageModPair { m_type = HitData.DamageType.Fire, m_modifier = HitData.DamageModifier.Resistant });
+                    se.m_mods.Add(new HitData.DamageModPair { m_type = HitData.DamageType.Poison, m_modifier = HitData.DamageModifier.Resistant });
                 }
 
                 var seman = player.GetSEMan();
@@ -188,6 +223,9 @@ namespace FlyingPets
                         break;
                     case Breath:
                         se = Make<StatusEffect>(id, "fp_se_breath", "fp_se_breath_tip", "breath");
+                        break;
+                    case Storm:
+                        se = Make<StatusEffect>(id, "fp_se_storm", "fp_se_storm_tip", "sandstorm");
                         break;
                     default:
                         se = Make<StatusEffect>(id, "fp_se_catch", "fp_se_catch_tip", "valkyrie");

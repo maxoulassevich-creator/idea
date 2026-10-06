@@ -17,6 +17,7 @@ namespace FlyingPets
         private const string SecPegasus = "7 - Pegasus abilities";
         private const string SecRaven = "8 - Raven abilities";
         private const string SecDragon = "9 - Dragon abilities";
+        private const string SecProwler = "10 - Prowler abilities";
 
         public static ConfigEntry<bool> PitchFollowsCamera;
         public static ConfigEntry<float> PitchDeadZone;
@@ -84,6 +85,17 @@ namespace FlyingPets
         public static ConfigEntry<float> BreathDamage;
         public static ConfigEntry<float> BreathRange;
         public static ConfigEntry<float> BreathCooldown;
+
+        public static ConfigEntry<bool> ScavengerNose;
+        public static ConfigEntry<float> QuicksandRadius;
+        public static ConfigEntry<float> QuicksandSlow;
+        public static ConfigEntry<float> DesertFoodRate;
+        public static ConfigEntry<bool> SunHide;
+        public static ConfigEntry<bool> Sandstorm;
+        public static ConfigEntry<float> StormRadius;
+        public static ConfigEntry<float> StormDuration;
+        public static ConfigEntry<float> StormDamage;
+        public static ConfigEntry<float> StormCooldown;
 
         public static void Init(ConfigFile cfg)
         {
@@ -201,6 +213,23 @@ namespace FlyingPets
                 "Tidal breath: damage of one gush (frost and blunt); the jet gushes 8 times over 2 seconds.");
             BreathRange = cfg.Bind(SecDragon, "TidalBreathRange", 16f, "Tidal breath: how far the jet reaches, m.");
             BreathCooldown = cfg.Bind(SecDragon, "TidalBreathCooldown", 40f, "Tidal breath: cooldown, s.");
+
+            ScavengerNose = cfg.Bind(SecProwler, "ScavengerNose", true,
+                "Scavenger's nose: in the prowler's saddle you sense buried treasure, silver and scrap piles, as with a Wishbone.");
+            QuicksandRadius = cfg.Bind(SecProwler, "QuicksandRadius", 7f,
+                "Quicksand: enemies this near a prowler that stands or walks on the ground sink in and slow down, m (0 = off).");
+            QuicksandSlow = cfg.Bind(SecProwler, "QuicksandSlow", 0.5f, "Quicksand: how much slower they get (0.5 = half speed).");
+            DesertFoodRate = cfg.Bind(SecProwler, "DesertEnduranceFoodRate", 0.5f,
+                "Desert endurance: in the prowler's saddle your food wears off at this rate (0.5 = twice as slowly, 1 = off).");
+            SunHide = cfg.Bind(SecProwler, "SunHide", true,
+                "Sun-baked hide: fire and poison do half damage to you while you sit in the prowler's saddle.");
+            Sandstorm = cfg.Bind(SecProwler, "Sandstorm", true,
+                "Sandstorm (secondary attack in the saddle, on the ground or in flight): the prowler beats up a storm of sand " +
+                "around itself; enemies inside are blinded, slowed and scoured.");
+            StormRadius = cfg.Bind(SecProwler, "SandstormRadius", 10f, "Sandstorm: radius, m.");
+            StormDuration = cfg.Bind(SecProwler, "SandstormDuration", 6f, "Sandstorm: how long it rages, s.");
+            StormDamage = cfg.Bind(SecProwler, "SandstormDamage", 6f, "Sandstorm: damage per second to enemies inside (slash).");
+            StormCooldown = cfg.Bind(SecProwler, "SandstormCooldown", 45f, "Sandstorm: cooldown, s.");
         }
     }
 }

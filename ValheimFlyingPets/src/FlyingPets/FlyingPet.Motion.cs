@@ -121,7 +121,8 @@ namespace FlyingPets
                 }
             }
 
-            if (m_skill != SkillNone && (m_localRider == null || (m_state != StateAir && m_skill != SkillBreath)))
+            bool groundSkill = m_skill == SkillBreath || m_skill == SkillStorm;
+            if (m_skill != SkillNone && (m_localRider == null || (m_state != StateAir && !groundSkill)))
             {
                 StopSkill();
             }
@@ -152,6 +153,15 @@ namespace FlyingPets
             if (m_skill == SkillBreath)
             {
                 BreathStep(dt);
+            }
+            else if (m_skill == SkillStorm)
+            {
+                StormStep(dt);
+            }
+
+            if (Has(PetAbility.Quicksand))
+            {
+                QuicksandStep(dt);
             }
 
             if (m_state == StateAir && m_localRider != null && m_attachedLocal && Has(PetAbility.Fisher))

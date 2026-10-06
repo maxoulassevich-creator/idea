@@ -30,6 +30,13 @@ namespace FlyingPets
         public const string SteamingScales = "steaming_scales"; // no burning in the saddle
         public const string TidalBreath = "tidal_breath";       // active: a jet of icy water
 
+        // sand prowler
+        public const string ScavengerNose = "scavenger_nose";   // senses buried treasure like a wishbone
+        public const string Quicksand = "quicksand";            // enemies near it on the ground sink and slow down
+        public const string DesertEndurance = "desert_endurance"; // food lasts longer in the saddle
+        public const string SunHide = "sun_hide";               // fire and poison hurt less in the saddle
+        public const string Sandstorm = "sandstorm";            // active: a blinding storm of sand around it
+
         /// <summary>Abilities of the built-in pets, for a pet folder from an older version without the list.</summary>
         public static string[] Defaults(string key)
         {
@@ -41,6 +48,8 @@ namespace FlyingPets
                     return new[] { Huginn, Muninn, RavenFeast, PreyShadow, TalonGrab };
                 case "dragon":
                     return new[] { SeaTruce, LivingWater, Fisher, SteamingScales, TidalBreath };
+                case "prowler":
+                    return new[] { ScavengerNose, Quicksand, DesertEndurance, SunHide, Sandstorm };
                 default:
                     return new string[0];
             }
@@ -71,6 +80,11 @@ namespace FlyingPets
             if (set.Contains(TidalBreath))
             {
                 return TidalBreath;
+            }
+
+            if (set.Contains(Sandstorm))
+            {
+                return Sandstorm;
             }
 
             return set.Contains(TalonGrab) ? TalonGrab : null;

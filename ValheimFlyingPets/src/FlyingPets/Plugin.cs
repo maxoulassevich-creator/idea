@@ -19,7 +19,7 @@ namespace FlyingPets
     {
         public const string PluginGuid = "com.oulassevich.flyingpets";
         public const string PluginName = "FlyingPets";
-        public const string PluginVersion = "1.4.0";
+        public const string PluginVersion = "1.5.0";
 
         internal static ManualLogSource Log;
 
@@ -30,6 +30,7 @@ namespace FlyingPets
             Log = Logger;
             ModConfig.Init(Config);
             Texts.Register();
+            AbilityEffects.RegisterShared();
 
             _harmony = new Harmony(PluginGuid);
             TryPatch(typeof(StaffAttackPatch), "staff");
