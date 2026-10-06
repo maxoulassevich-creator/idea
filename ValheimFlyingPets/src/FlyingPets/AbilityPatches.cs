@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
@@ -170,6 +171,50 @@ namespace FlyingPets
             }
 
             return true;
+        }
+    }
+
+    /// <summary>Death's tithe: the owner of a dying creature lets the vultures nearby heal their riders.</summary>
+    [HarmonyPatch(typeof(Character), "OnDeath")]
+    internal static class DeathTithePatch
+    {
+        private static void Prefix(Character __instance)
+        {
+            try
+            {
+                Passives.DeathTithe(__instance);
+            }
+            catch (Exception e)
+            {
+                FlyingPetsPlugin.Log.LogDebug("Death's tithe failed: " + e.Message);
+            }
+        }
+    }
+
+    /// <summary>Vulture's eye and cinder strikes: the local player's blows, before they are sent to the target.</summary>
+    [HarmonyPatch(typeof(Character), nameof(Character.Damage))]
+    internal static class VultureBlowPatch
+    {
+        private static void Prefix(Character __instance, HitData __0)
+        {
+            try
+            {
+                Passives.Blow(__instance, __0);
+            }
+            catch (Exception e)
+            {
+                FlyingPetsPlugin.Log.LogDebug("Vulture blow failed: " + e.Message);
+            }
+        }
+    }
+
+    /// <summary>Soot cloak: monsters see a vulture's rider only from nearer.</summary>
+    [HarmonyPatch(typeof(Player), nameof(Player.GetStealthFactor))]
+    internal static class SootCloakPatch
+    {
+        private static void Postfix(Player __instance, ref float __result)
+        {
+            __result = Passives.Cloak(__instance, __result);
         }
     }
 }

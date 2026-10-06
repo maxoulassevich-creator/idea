@@ -20,6 +20,7 @@ namespace FlyingPets
         public const string Catch = "catch";
         public const string Breath = "breath";
         public const string Storm = "storm";
+        public const string Embers = "embers";
 
         /// <summary>The prowler's quicksand: a slowing effect every game knows (registered in ObjectDB).</summary>
         public static readonly int QuicksandHash = "FP_SE_quicksand".GetStableHashCode();
@@ -226,6 +227,9 @@ namespace FlyingPets
                         break;
                     case Storm:
                         se = Make<StatusEffect>(id, "fp_se_storm", "fp_se_storm_tip", "sandstorm");
+                        break;
+                    case Embers:
+                        se = Make<StatusEffect>(id, "fp_se_embers", "fp_se_embers_tip", "ember_rain");
                         break;
                     default:
                         se = Make<StatusEffect>(id, "fp_se_catch", "fp_se_catch_tip", "valkyrie");

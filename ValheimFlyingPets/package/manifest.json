@@ -1,7 +1,7 @@
 {
   "name": "FlyingPets",
-  "version_number": "1.5.0",
+  "version_number": "1.6.0",
   "website_url": "",
-  "description": "Winged mounts to ride and fly, called with a druid's staff: pegasus, giant raven, water dragon or sand prowler, each with four passive powers and one active (thunder dive, talon grab, tidal breath, sandstorm).",
+  "description": "Winged mounts to ride and fly, called with a druid's staff: pegasus, raven, water dragon, sand prowler, ash vulture; four passives and one active each.",
   "dependencies": []
 }

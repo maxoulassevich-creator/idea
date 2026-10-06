@@ -206,6 +206,18 @@ namespace FlyingPets
                 m_anim.SetJaw(m_pOut, 0.55f * w);
             }
 
+            // the ember rain: the wings shake the burning ash loose in short hard beats, the jaws open in a screech
+            m_emberW = Mathf.MoveTowards(m_emberW, skill == SkillEmbers ? 1f : 0f, dt * 3f);
+            if (m_emberW > 0.001f)
+            {
+                float w = PetAnimator.Smooth(m_emberW);
+                m_emberBeat = Mathf.Repeat(m_emberBeat + dt * 1.6f / period, 1f);
+                m_anim.Fly(m_emberBeat, amp * 0.9f, m_pSkill);
+                PetAnimator.Blend(m_pOut, m_pOut, m_pSkill, w, m_anim.WingBones[0]);
+                PetAnimator.Blend(m_pOut, m_pOut, m_pSkill, w, m_anim.WingBones[1]);
+                m_anim.SetJaw(m_pOut, 0.45f * w);
+            }
+
             // ---- apply
             for (int i = 0; i < m_bones.Length; i++)
             {

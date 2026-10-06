@@ -6,8 +6,8 @@ namespace FlyingPets
     /// <summary>
     ///     The active abilities (secondary attack in the saddle): the pegasus' thunder hoof and the raven's
     ///     talon grab (the dragon's tidal breath is in FlyingPet.Dragon, the prowler's sandstorm in
-    ///     FlyingPet.Prowler), and the valkyrie's catch. Run by the rider's game, which owns the pet; the effects
-    ///     are sent to everybody with FP_Fx.
+    ///     FlyingPet.Prowler, the vulture's ember rain in FlyingPet.Vulture), and the valkyrie's catch. Run by
+    ///     the rider's game, which owns the pet; the effects are sent to everybody with FP_Fx.
     /// </summary>
     public partial class FlyingPet
     {
@@ -135,6 +135,12 @@ namespace FlyingPets
                     case FxStorm:
                         Fx.Sandstorm(transform, args.x, args.y, Mathf.Max(0.5f, m_scale));
                         break;
+                    case FxEmbers:
+                        Fx.EmberRain(transform, args.x, args.y, Mathf.Max(0.5f, m_scale));
+                        break;
+                    case FxTithe:
+                        Fx.Tithe(pos, args);
+                        break;
                 }
             }
             catch (System.Exception e)
@@ -166,25 +172,27 @@ namespace FlyingPets
             bool thunder = active == PetAbility.ThunderHoof;
             bool breath = active == PetAbility.TidalBreath;
             bool storm = active == PetAbility.Sandstorm;
+            bool embers = active == PetAbility.EmberRain;
             bool enabled = thunder ? ModConfig.ThunderHoof.Value
                 : breath ? ModConfig.TidalBreath.Value
                 : storm ? ModConfig.Sandstorm.Value
+                : embers ? ModConfig.EmberRain.Value
                 : ModConfig.TalonGrab.Value;
             if (m_skill != SkillNone || m_seq != SeqNone || !enabled)
             {
                 return;
             }
 
-            if (m_state != StateAir && !breath && !storm) // the breath and the storm work on the ground too
+            if (m_state != StateAir && !breath && !storm && !embers) // these three work on the ground too
             {
                 player.Message(MessageHud.MessageType.Center, Texts.Get("fp_msg_need_air"));
                 return;
             }
 
-            float ready = thunder ? s_thunderReady : breath ? s_breathReady : storm ? s_stormReady : s_grabReady;
+            float ready = thunder ? s_thunderReady : breath ? s_breathReady : storm ? s_stormReady : embers ? s_embersReady : s_grabReady;
             if (Time.time < ready)
             {
-                string name = thunder ? "fp_se_thunder" : breath ? "fp_se_breath" : storm ? "fp_se_storm" : "fp_se_grab";
+                string name = thunder ? "fp_se_thunder" : breath ? "fp_se_breath" : storm ? "fp_se_storm" : embers ? "fp_se_embers" : "fp_se_grab";
                 player.Message(MessageHud.MessageType.Center, Texts.Get("fp_msg_cooldown", Texts.Get(name), Mathf.CeilToInt(ready - Time.time)));
                 return;
             }
@@ -200,6 +208,10 @@ namespace FlyingPets
             else if (storm)
             {
                 BeginStorm(player);
+            }
+            else if (embers)
+            {
+                BeginEmbers(player);
             }
             else
             {

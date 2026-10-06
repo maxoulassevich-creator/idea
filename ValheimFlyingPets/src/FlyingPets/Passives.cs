@@ -984,6 +984,137 @@ namespace FlyingPets
             }
         }
 
+        // ------------------------------------------------------------------ the ash vulture
+        /// <summary>True while the ember rain deals its own blows: the rider's bonuses stay out of them.</summary>
+        internal static bool OwnHit;
+
+        /// <summary>
+        ///     The vulture with this ability that lends it to the player: the one they ride, or their own one
+        ///     standing near them.
+        /// </summary>
+        internal static FlyingPet VultureFor(Player player, string ability)
+        {
+            var mount = FlyingPet.MountOf(player);
+            if (mount != null)
+            {
+                return mount.Has(ability) ? mount : null;
+            }
+
+            var own = FlyingPet.FindOwnedBy(player.GetPlayerID());
+            if (own == null || !own.IsAround || !own.Has(ability))
+            {
+                return null;
+            }
+
+            float r = Mathf.Max(1f, ModConfig.CinderRadius.Value) * Mathf.Max(1f, own.Scale);
+            return (own.transform.position - player.transform.position).sqrMagnitude <= r * r ? own : null;
+        }
+
+        /// <summary>
+        ///     A blow of the local player (Character.Damage runs on the attacker's game): the vulture's eye finds the
+        ///     wounded, the cinder strikes set the foe alight.
+        /// </summary>
+        internal static void Blow(Character target, HitData hit)
+        {
+            if (OwnHit || hit == null || target == null || target.IsPlayer() || target.IsTamed())
+            {
+                return;
+            }
+
+            var player = Player.m_localPlayer;
+            if (player == null || hit.GetTotalDamage() <= 0f || hit.GetAttacker() != player)
+            {
+                return;
+            }
+
+            float bonus = ModConfig.VultureEyeBonus.Value;
+            if (bonus > 0f && target.GetHealthPercentage() < ModConfig.VultureEyeThreshold.Value &&
+                VultureFor(player, PetAbility.VultureEye) != null)
+            {
+                hit.m_damage.Modify(1f + bonus);
+            }
+
+            float fire = ModConfig.CinderFire.Value;
+            if (fire > 0f && VultureFor(player, PetAbility.CinderStrikes) != null)
+            {
+                hit.m_damage.m_fire += fire;
+            }
+        }
+
+        /// <summary>
+        ///     A creature dies (called on its owner's game, just before it is gone): every vulture nearby with the death's
+        ///     tithe heals its rider, or its owner if the owner stands near it.
+        /// </summary>
+        internal static void DeathTithe(Character dead)
+        {
+            float pct = ModConfig.TitheHealPercent.Value;
+            if (pct <= 0f || dead == null || dead.IsPlayer() || dead.IsTamed() || FlyingPet.Instances.Count == 0)
+            {
+                return;
+            }
+
+            var view = dead.GetComponent<ZNetView>();
+            if (view == null || !view.IsValid() || !view.IsOwner())
+            {
+                return;
+            }
+
+            Vector3 p = dead.transform.position;
+            float r = Mathf.Max(1f, ModConfig.TitheRadius.Value);
+            float heal = Mathf.Clamp(dead.GetMaxHealth() * pct / 100f, 2f, Mathf.Max(2f, ModConfig.TitheHealMax.Value));
+            foreach (var pet in FlyingPet.Instances)
+            {
+                if (pet == null || !pet.IsAround || !pet.Has(PetAbility.DeathTithe))
+                {
+                    continue;
+                }
+
+                float reach = r * Mathf.Max(1f, pet.Scale);
+                Vector3 q = pet.transform.position;
+                if ((q - p).sqrMagnitude > reach * reach)
+                {
+                    continue;
+                }
+
+                long rider = pet.RiderId;
+                var player = Util.FindPlayer(rider != 0L ? rider : pet.OwnerId);
+                if (player == null || player.IsDead() ||
+                    (rider == 0L && (player.transform.position - q).sqrMagnitude > reach * reach))
+                {
+                    continue;
+                }
+
+                player.Heal(heal, true); // a remote player is healed by its own game (an RPC)
+                pet.TitheFx(dead.GetCenterPoint(), player);
+            }
+        }
+
+        /// <summary>Player.GetStealthFactor (any game): a vulture's rider is seen only from nearer.</summary>
+        internal static float Cloak(Player player, float factor)
+        {
+            float k = ModConfig.SootCloakSight.Value;
+            if (k >= 1f || player == null || FlyingPet.Instances.Count == 0)
+            {
+                return factor;
+            }
+
+            long id = player.GetPlayerID();
+            if (id == 0L)
+            {
+                return factor;
+            }
+
+            foreach (var pet in FlyingPet.Instances)
+            {
+                if (pet != null && pet.IsAround && pet.Has(PetAbility.SootCloak) && pet.RiderId == id)
+                {
+                    return factor * Mathf.Clamp01(k);
+                }
+            }
+
+            return factor;
+        }
+
         // ------------------------------------------------------------------ ravens' feast
         /// <summary>Is a raven with the feast near this point (horizontally, any height up to 80 m)?</summary>
         internal static bool FeastNear(Vector3 p)

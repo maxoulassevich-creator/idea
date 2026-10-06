@@ -67,6 +67,11 @@ namespace FlyingPets
             { "fp_se_storm_tip", "The prowler gets its breath back." },
             { "fp_se_quicksand", "Quicksand" },
             { "fp_se_quicksand_tip", "Sinking in sand: slowed down." },
+            { "fp_pet_vulture", "Ash Vulture" },
+            { "fp_msg_skill_ember_rain", "Mouse wheel - Ember rain" },
+            { "fp_se_vulture_tip", "Death's tithe: every creature that dies near the vulture gives you some of its life.\nVulture's eye: wounded creatures take more damage from you.\nCinder strikes: your blows near the vulture burn.\nSoot cloak: in the saddle enemies notice you only from half as far.\nSecondary attack: Ember rain." },
+            { "fp_se_embers", "Ember rain" },
+            { "fp_se_embers_tip", "The vulture's wings smoulder again." },
         };
 
         private static readonly Dictionary<string, string> Russian = new Dictionary<string, string>
@@ -130,6 +135,11 @@ namespace FlyingPets
             { "fp_se_storm_tip", "Выползень переводит дух." },
             { "fp_se_quicksand", "Зыбучий песок" },
             { "fp_se_quicksand_tip", "Увяз в песке: движения замедлены." },
+            { "fp_pet_vulture", "Пепельный стервятник" },
+            { "fp_msg_skill_ember_rain", "Колесо мыши - Пепельный дождь" },
+            { "fp_se_vulture_tip", "Дань смерти: каждое существо, погибшее рядом со стервятником, отдаёт вам часть своей жизни.\nГлаз стервятника: раненые существа получают от вас больше урона.\nТлеющие удары: рядом со стервятником ваши удары жгут огнём.\nСажевый плащ: в седле враги замечают вас вдвое ближе обычного.\nВторичная атака: Пепельный дождь." },
+            { "fp_se_embers", "Пепельный дождь" },
+            { "fp_se_embers_tip", "Крылья стервятника снова начинают тлеть." },
         };
 
         public static void Register()

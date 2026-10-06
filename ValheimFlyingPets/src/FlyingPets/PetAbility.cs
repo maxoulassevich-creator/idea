@@ -37,6 +37,13 @@ namespace FlyingPets
         public const string SunHide = "sun_hide";               // fire and poison hurt less in the saddle
         public const string Sandstorm = "sandstorm";            // active: a blinding storm of sand around it
 
+        // ash vulture
+        public const string DeathTithe = "death_tithe";         // a creature dying near it heals the rider
+        public const string VultureEye = "vulture_eye";         // wounded creatures take more damage from the rider
+        public const string CinderStrikes = "cinder_strikes";   // the rider's blows near it burn
+        public const string SootCloak = "soot_cloak";           // enemies notice the rider later
+        public const string EmberRain = "ember_rain";           // active: burning ash rains down around it
+
         /// <summary>Abilities of the built-in pets, for a pet folder from an older version without the list.</summary>
         public static string[] Defaults(string key)
         {
@@ -50,6 +57,8 @@ namespace FlyingPets
                     return new[] { SeaTruce, LivingWater, Fisher, SteamingScales, TidalBreath };
                 case "prowler":
                     return new[] { ScavengerNose, Quicksand, DesertEndurance, SunHide, Sandstorm };
+                case "vulture":
+                    return new[] { DeathTithe, VultureEye, CinderStrikes, SootCloak, EmberRain };
                 default:
                     return new string[0];
             }
@@ -85,6 +94,11 @@ namespace FlyingPets
             if (set.Contains(Sandstorm))
             {
                 return Sandstorm;
+            }
+
+            if (set.Contains(EmberRain))
+            {
+                return EmberRain;
             }
 
             return set.Contains(TalonGrab) ? TalonGrab : null;

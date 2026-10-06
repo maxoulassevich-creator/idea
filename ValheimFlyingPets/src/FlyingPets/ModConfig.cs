@@ -18,6 +18,7 @@ namespace FlyingPets
         private const string SecRaven = "8 - Raven abilities";
         private const string SecDragon = "9 - Dragon abilities";
         private const string SecProwler = "10 - Prowler abilities";
+        private const string SecVulture = "11 - Vulture abilities";
 
         public static ConfigEntry<bool> PitchFollowsCamera;
         public static ConfigEntry<float> PitchDeadZone;
@@ -96,6 +97,20 @@ namespace FlyingPets
         public static ConfigEntry<float> StormDuration;
         public static ConfigEntry<float> StormDamage;
         public static ConfigEntry<float> StormCooldown;
+
+        public static ConfigEntry<float> TitheHealPercent;
+        public static ConfigEntry<float> TitheHealMax;
+        public static ConfigEntry<float> TitheRadius;
+        public static ConfigEntry<float> VultureEyeBonus;
+        public static ConfigEntry<float> VultureEyeThreshold;
+        public static ConfigEntry<float> CinderFire;
+        public static ConfigEntry<float> CinderRadius;
+        public static ConfigEntry<float> SootCloakSight;
+        public static ConfigEntry<bool> EmberRain;
+        public static ConfigEntry<float> EmberRadius;
+        public static ConfigEntry<float> EmberDuration;
+        public static ConfigEntry<float> EmberDamage;
+        public static ConfigEntry<float> EmberCooldown;
 
         public static void Init(ConfigFile cfg)
         {
@@ -230,6 +245,29 @@ namespace FlyingPets
             StormDuration = cfg.Bind(SecProwler, "SandstormDuration", 6f, "Sandstorm: how long it rages, s.");
             StormDamage = cfg.Bind(SecProwler, "SandstormDamage", 6f, "Sandstorm: damage per second to enemies inside (slash).");
             StormCooldown = cfg.Bind(SecProwler, "SandstormCooldown", 45f, "Sandstorm: cooldown, s.");
+
+            TitheHealPercent = cfg.Bind(SecVulture, "DeathTitheHealPercent", 15f,
+                "Death's tithe: a creature that dies near the vulture heals its rider (or its owner standing near it) by this " +
+                "share of the creature's health, % (0 = off).");
+            TitheHealMax = cfg.Bind(SecVulture, "DeathTitheHealMax", 40f, "Death's tithe: the most one death can heal, hit points.");
+            TitheRadius = cfg.Bind(SecVulture, "DeathTitheRadius", 25f, "Death's tithe: how near the vulture the creature must die, m.");
+            VultureEyeBonus = cfg.Bind(SecVulture, "VultureEyeBonus", 0.3f,
+                "Vulture's eye: extra damage your blows deal to wounded creatures near your vulture (0.3 = +30%, 0 = off).");
+            VultureEyeThreshold = cfg.Bind(SecVulture, "VultureEyeThreshold", 0.5f,
+                "Vulture's eye: a creature counts as wounded below this share of its health (0.5 = half).");
+            CinderFire = cfg.Bind(SecVulture, "CinderStrikesFire", 6f,
+                "Cinder strikes: fire damage added to each of your blows while you ride the vulture or fight near it (0 = off).");
+            CinderRadius = cfg.Bind(SecVulture, "CinderStrikesRadius", 20f,
+                "Cinder strikes and vulture's eye: how near your vulture you must be when you are not in the saddle, m.");
+            SootCloakSight = cfg.Bind(SecVulture, "SootCloakSight", 0.5f,
+                "Soot cloak: in the vulture's saddle enemies see you only from this share of their usual distance (1 = off).");
+            EmberRain = cfg.Bind(SecVulture, "EmberRain", true,
+                "Ember rain (secondary attack in the saddle, on the ground or in flight): the vulture shakes burning ash from " +
+                "its wings; everything beneath it catches fire.");
+            EmberRadius = cfg.Bind(SecVulture, "EmberRainRadius", 9f, "Ember rain: radius of the burning ground under the vulture, m.");
+            EmberDuration = cfg.Bind(SecVulture, "EmberRainDuration", 6f, "Ember rain: how long the ash falls, s.");
+            EmberDamage = cfg.Bind(SecVulture, "EmberRainDamage", 10f, "Ember rain: fire damage per second to enemies beneath it.");
+            EmberCooldown = cfg.Bind(SecVulture, "EmberRainCooldown", 40f, "Ember rain: cooldown, s.");
         }
     }
 }
