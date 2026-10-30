@@ -19,7 +19,7 @@ namespace Wizardry
 
         public static void Cast(Player caster, WizardState w, Character t, string form, float duration, bool firebomb)
         {
-            if (t == null || t.IsDead() || t.m_nview == null || t.m_nview.GetZDO() == null)
+            if (t == null || t.IsDead() || t.Nv() == null || t.Nv().GetZDO() == null)
             {
                 return;
             }
@@ -42,7 +42,7 @@ namespace Wizardry
             }
 
             Effects.Apply(caster, w, t, "poly", duration, 0f, form);
-            Fx.Send(FxKind.Poly, t.transform.position, Vector3.up, "", d, form, t.m_nview.GetZDO().m_uid);
+            Fx.Send(FxKind.Poly, t.transform.position, Vector3.up, "", d, form, t.Nv().GetZDO().m_uid);
             if (w.Stats.Has("poly_restore"))
             {
                 caster.AddEitr(5f);

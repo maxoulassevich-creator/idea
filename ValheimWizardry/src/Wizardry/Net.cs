@@ -17,7 +17,7 @@ namespace Wizardry
 
         public static void RegisterCharacter(Character c)
         {
-            var nv = c != null ? c.m_nview : null;
+            var nv = c != null ? c.Nv() : null;
             if (nv == null || nv.GetZDO() == null)
             {
                 return;
@@ -41,7 +41,7 @@ namespace Wizardry
         // ------------------------------------------------------------------ status
         public static void SendStatus(Character target, StatusOrder o)
         {
-            var nv = target != null ? target.m_nview : null;
+            var nv = target != null ? target.Nv() : null;
             if (nv == null || !nv.IsValid())
             {
                 return;
@@ -60,7 +60,7 @@ namespace Wizardry
 
         private static void OnStatus(Character c, ZPackage pkg)
         {
-            if (c == null || c.m_nview == null || !c.m_nview.IsOwner())
+            if (c == null || c.Nv() == null || !c.Nv().IsOwner())
             {
                 return;
             }
@@ -71,14 +71,14 @@ namespace Wizardry
             }
             catch (Exception e)
             {
-                Plugin.Log.LogWarning("Status message failed: " + e.Message);
+                Plugin.Report("Status message", e);
             }
         }
 
         // ------------------------------------------------------------------ pushes
         public static void Impulse(Character target, Vector3 velocity)
         {
-            var nv = target != null ? target.m_nview : null;
+            var nv = target != null ? target.Nv() : null;
             if (nv == null || !nv.IsValid())
             {
                 return;
@@ -96,21 +96,21 @@ namespace Wizardry
 
         private static void OnImpulse(Character c, Vector3 v)
         {
-            if (c == null || c.m_body == null || (c.m_nview != null && !c.m_nview.IsOwner()) || c.IsBoss())
+            if (c == null || c.Body() == null || (c.Nv() != null && !c.Nv().IsOwner()) || c.IsBoss())
             {
                 return;
             }
 
-            c.m_body.velocity += v;
+            c.Body().velocity += v;
             if (v.y > 1f)
             {
-                c.m_lastGroundTouch = 0f;
+                c.ClearGroundTouch();
             }
         }
 
         public static void Cleanse(Character target, string what)
         {
-            var nv = target != null ? target.m_nview : null;
+            var nv = target != null ? target.Nv() : null;
             if (nv == null || !nv.IsValid())
             {
                 return;
@@ -161,7 +161,7 @@ namespace Wizardry
         }
     }
 
-    [HarmonyPatch(typeof(Character), nameof(Character.Awake))]
+    [HarmonyPatch(typeof(Character), "Awake")]
     internal static class CharacterAwakePatch
     {
         private static void Postfix(Character __instance)
@@ -173,12 +173,12 @@ namespace Wizardry
             }
             catch (Exception e)
             {
-                Plugin.Log.LogDebug("Character setup: " + e.Message);
+                Plugin.Report("Character setup", e);
             }
         }
     }
 
-    [HarmonyPatch(typeof(ZNetScene), nameof(ZNetScene.Awake))]
+    [HarmonyPatch(typeof(ZNetScene), "Awake")]
     internal static class SceneAwakePatch
     {
         private static void Postfix()

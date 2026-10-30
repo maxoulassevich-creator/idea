@@ -5,8 +5,9 @@ the games, the HP wiki and fan fiction, and 341 of them can be cast in Valheim.
 
 *Русская инструкция по установке лежит в архиве: `УСТАНОВКА.md`.*
 
-> Version 1.0.0 is compiled against the Valheim 1.0.21 reference assemblies but has **not been played yet**.
-> Back up your world and character first, and please send `BepInEx/LogOutput.log` if something breaks.
+> Version 1.0.1 fixes the `FieldAccessException` that 1.0.0 logged every frame on Valheim 1.0.21. The mod has not
+> been played through yet: back up your world and character first, and please send `BepInEx/LogOutput.log` if
+> something breaks.
 
 ## Features
 

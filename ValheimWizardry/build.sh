@@ -3,7 +3,7 @@
 # Needs: .NET SDK 8+, curl, unzip, zip. The reference assemblies come from NuGet into libs/.
 set -euo pipefail
 cd "$(dirname "$0")"
-VERSION=1.0.0
+VERSION=1.0.1
 PKGS=libs/pkgs
 REFS=libs/refs
 mkdir -p "$PKGS" "$REFS" dist

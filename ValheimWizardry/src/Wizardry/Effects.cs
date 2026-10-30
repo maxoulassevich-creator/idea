@@ -77,7 +77,7 @@ namespace Wizardry
             {
                 Key = key, SeName = seName ?? ("WZ_" + key), Duration = duration, Power = power, Variant = variant ?? "",
                 DamageType = dtype ?? "", Buffs = buffs ?? "",
-                Source = caster != null && caster.m_nview != null && caster.m_nview.GetZDO() != null ? caster.m_nview.GetZDO().m_uid : ZDOID.None
+                Source = caster != null && caster.Nv() != null && caster.Nv().GetZDO() != null ? caster.Nv().GetZDO().m_uid : ZDOID.None
             };
             Net.SendStatus(target, order);
             Fx.SendStatus(target, key, variant, duration);
@@ -86,14 +86,14 @@ namespace Wizardry
         /// <summary>Makes <paramref name="target" /> attack <paramref name="focus" /> for a while.</summary>
         public static void ApplyTaunt(Player caster, Character target, Character focus, float duration)
         {
-            if (target == null || focus == null || target.IsPlayer() || focus.m_nview == null || focus.m_nview.GetZDO() == null)
+            if (target == null || focus == null || target.IsPlayer() || focus.Nv() == null || focus.Nv().GetZDO() == null)
             {
                 return;
             }
 
             var order = new StatusOrder
             {
-                Key = "taunt", SeName = "WZ_taunt", Duration = duration, Power = 0f, Source = focus.m_nview.GetZDO().m_uid
+                Key = "taunt", SeName = "WZ_taunt", Duration = duration, Power = 0f, Source = focus.Nv().GetZDO().m_uid
             };
             Net.SendStatus(target, order);
             Fx.SendStatus(target, "taunt", "", duration);
@@ -150,7 +150,7 @@ namespace Wizardry
             }
 
             se.m_ttl = o.Duration;
-            se.m_time = 0f;
+            se.ResetTime();
             se.Power = o.Power;
             se.Variant = o.Variant;
             se.DamageType = o.DamageType;
@@ -287,7 +287,7 @@ namespace Wizardry
                 return true;
             }
 
-            var zdo = c.m_nview != null ? c.m_nview.GetZDO() : null;
+            var zdo = c.Nv() != null ? c.Nv().GetZDO() : null;
             Dictionary<string, float> d;
             float until;
             return zdo != null && s_seen.TryGetValue(zdo.m_uid, out d) && d.TryGetValue(key, out until) && until > Time.time;

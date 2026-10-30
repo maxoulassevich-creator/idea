@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.0.1 — 2026-10-30
+
+### Fixed
+
+* `FieldAccessException: Field 'Character:m_nview' is inaccessible` logged every frame.
+  * Valheim 1.0.21 runs on Unity 6, whose Mono enforces member visibility at run time. The mod was compiled against
+    publicized references, so it touched private and protected game members directly.
+  * All of them (about 40 members in 170 places) now go through public game methods, Harmony `___field` parameters or
+    reflection (`Access.cs`).
+* One failing subsystem (Lumos, weather, flight, zones…) no longer stops the others.
+* A repeated error is logged once with its stack trace and then only counted.
+
+### Added
+
+* `tools/check_access.sh` compiles the mod against the original (non-publicized) Valheim assemblies, so a direct use
+  of a non-public game member fails the check.
+
 ## 1.0.0 — 2026-10-30
 
 The first release, for Valheim 1.0.21 (BepInExPack_Valheim 5.4.2360, Jötunn 2.30.2).

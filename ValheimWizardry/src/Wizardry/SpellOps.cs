@@ -778,7 +778,7 @@ namespace Wizardry
 
         private static void Wet(Character t)
         {
-            if (t.m_nview != null && t.m_nview.IsOwner() && t.GetSEMan() != null)
+            if (t.Nv() != null && t.Nv().IsOwner() && t.GetSEMan() != null)
             {
                 t.GetSEMan().AddStatusEffect("Wet".GetStableHashCode(), true);
             }
@@ -793,15 +793,15 @@ namespace Wizardry
             }
 
             if (Wizard.State != null && Wizard.State.Stats.Get(Stat.tame_speed) >= 200f && t.GetHealth() / t.GetMaxHealth() < 0.25f &&
-                t.m_nview != null && t.m_nview.IsOwner())
+                t.Nv() != null && t.Nv().IsOwner())
             {
-                tame.Tame();
+                tame.TameNow();
                 return;
             }
 
-            if (t.m_nview != null && t.m_nview.IsOwner())
+            if (t.Nv() != null && t.Nv().IsOwner())
             {
-                tame.DecreaseRemainingTime(seconds);
+                tame.DecreaseTameTime(seconds);
             }
         }
 

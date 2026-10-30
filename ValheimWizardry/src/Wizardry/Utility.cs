@@ -13,17 +13,17 @@ namespace Wizardry
             foreach (var col in Physics.OverlapSphere(p, r))
             {
                 var plant = col.GetComponentInParent<Plant>();
-                if (plant == null || plant.m_nview == null || plant.m_nview.GetZDO() == null)
+                if (plant == null || plant.Nv() == null || plant.Nv().GetZDO() == null)
                 {
                     continue;
                 }
 
-                if (!plant.m_nview.IsOwner())
+                if (!plant.Nv().IsOwner())
                 {
-                    plant.m_nview.ClaimOwnership();
+                    plant.Nv().ClaimOwnership();
                 }
 
-                var zdo = plant.m_nview.GetZDO();
+                var zdo = plant.Nv().GetZDO();
                 long t = zdo.GetLong(ZDOVars.s_plantTime, ZNet.instance.GetTime().Ticks);
                 float step = Mathf.Max(plant.m_growTime, plant.m_growTimeMax) * 0.5f * (1f + (w != null ? w.Stats.Get(Stat.plant_growth) : 0f) / 100f);
                 zdo.Set(ZDOVars.s_plantTime, t - TimeSpan.FromSeconds(step).Ticks);
@@ -47,7 +47,7 @@ namespace Wizardry
                 }
             }
 
-            var item = caster.GetRightItem() ?? caster.GetLeftItem();
+            var item = caster.RightItem() ?? caster.LeftItem();
             if (item != null && item.m_shared.m_useDurability && item.m_durability < item.GetMaxDurability())
             {
                 item.m_durability = Mathf.Min(item.GetMaxDurability(), item.m_durability + item.GetMaxDurability() * 0.1f);
@@ -95,7 +95,7 @@ namespace Wizardry
             }
             catch (Exception e)
             {
-                Plugin.Log.LogWarning("Terrain change failed: " + e.Message);
+                Plugin.Report("Terrain change", e);
             }
 
             UnityEngine.Object.Destroy(go);
@@ -109,7 +109,7 @@ namespace Wizardry
             foreach (var col in Physics.OverlapSphere(p, single ? 3f : r))
             {
                 var item = col.GetComponentInParent<ItemDrop>();
-                if (item == null || item.m_nview == null || item.m_nview.GetZDO() == null)
+                if (item == null || item.Nv() == null || item.Nv().GetZDO() == null)
                 {
                     continue;
                 }
@@ -136,9 +136,9 @@ namespace Wizardry
 
             foreach (var item in list)
             {
-                if (!item.m_nview.IsOwner())
+                if (!item.Nv().IsOwner())
                 {
-                    item.m_nview.ClaimOwnership();
+                    item.Nv().ClaimOwnership();
                 }
 
                 item.transform.position = caster.transform.position + Vector3.up * 1.2f;
@@ -192,23 +192,24 @@ namespace Wizardry
             int n = 0;
             foreach (var pr in UnityEngine.Object.FindObjectsByType<global::Projectile>(FindObjectsSortMode.None))
             {
-                if (pr == null || pr.m_nview == null || !pr.m_nview.IsValid() || Vector3.Distance(pr.transform.position, p) > r)
+                if (pr == null || pr.Nv() == null || !pr.Nv().IsValid() || Vector3.Distance(pr.transform.position, p) > r)
                 {
                     continue;
                 }
 
-                if (pr.m_owner != null && (pr.m_owner.IsPlayer() || pr.m_owner.IsTamed()))
+                var owner = pr.Owner();
+                if (owner != null && (owner.IsPlayer() || owner.IsTamed()))
                 {
                     continue;
                 }
 
-                if (!pr.m_nview.IsOwner())
+                if (!pr.Nv().IsOwner())
                 {
-                    pr.m_nview.ClaimOwnership();
+                    pr.Nv().ClaimOwnership();
                 }
 
                 Fx.Burst(pr.transform.position, 0.5f, new Color(0.8f, 0.9f, 1f), 0.5f);
-                pr.m_nview.Destroy();
+                pr.Nv().Destroy();
                 n++;
             }
 
@@ -240,7 +241,7 @@ namespace Wizardry
                 }
             }
 
-            if (best == null || best.m_nview == null || best.m_nview.GetZDO() == null)
+            if (best == null || best.Nv() == null || best.Nv().GetZDO() == null)
             {
                 Casting.Message(Texts.L("Рядом нет двери.", "No door there."));
                 return;
@@ -248,13 +249,13 @@ namespace Wizardry
 
             if (mode == "lock")
             {
-                if (!best.m_nview.IsOwner())
+                if (!best.Nv().IsOwner())
                 {
-                    best.m_nview.ClaimOwnership();
+                    best.Nv().ClaimOwnership();
                 }
 
-                best.m_nview.GetZDO().Set("wz_locked", (long)(ZNet.instance.GetTimeSeconds() + seconds));
-                best.m_nview.GetZDO().Set("wz_locker", caster.GetPlayerID());
+                best.Nv().GetZDO().Set("wz_locked", (long)(ZNet.instance.GetTimeSeconds() + seconds));
+                best.Nv().GetZDO().Set("wz_locker", caster.GetPlayerID());
                 Casting.Message(Texts.L("Дверь запечатана.", "The door is sealed."));
                 return;
             }
@@ -267,22 +268,22 @@ namespace Wizardry
 
             if (Locked(best, null))
             {
-                if (!best.m_nview.IsOwner())
+                if (!best.Nv().IsOwner())
                 {
-                    best.m_nview.ClaimOwnership();
+                    best.Nv().ClaimOwnership();
                 }
 
-                best.m_nview.GetZDO().Set("wz_locked", 0L);
+                best.Nv().GetZDO().Set("wz_locked", 0L);
                 Casting.Message(Texts.L("Печать Коллопортуса снята.", "The Colloportus seal is broken."));
             }
 
             bool forward = Vector3.Dot(best.transform.forward, caster.transform.position - best.transform.position) < 0f;
-            best.m_nview.InvokeRPC("UseDoor", forward);
+            best.Nv().InvokeRPC("UseDoor", forward);
         }
 
         public static bool Locked(Door d, Humanoid user)
         {
-            var zdo = d != null && d.m_nview != null ? d.m_nview.GetZDO() : null;
+            var zdo = d != null && d.Nv() != null ? d.Nv().GetZDO() : null;
             if (zdo == null || ZNet.instance == null)
             {
                 return false;
@@ -342,7 +343,7 @@ namespace Wizardry
                 }
             }
 
-            best.Save();
+            best.SaveNow();
             Fx.Send(FxKind.Buff, best.transform.position, Vector3.up, "cistem_aperio", 0f);
             Casting.Message(Texts.L("Достано предметов: ", "Items taken: ") + moved);
         }
@@ -516,9 +517,9 @@ namespace Wizardry
                     continue;
                 }
 
-                if (c.m_nview != null && !c.m_nview.IsOwner())
+                if (c.Nv() != null && !c.Nv().IsOwner())
                 {
-                    c.m_nview.ClaimOwnership();
+                    c.Nv().ClaimOwnership();
                 }
 
                 var ai = c.GetBaseAI() as MonsterAI;
@@ -537,7 +538,7 @@ namespace Wizardry
         public static void Pack(Player caster)
         {
             var gui = InventoryGui.instance;
-            var chest = gui != null ? gui.m_currentContainer : null;
+            var chest = gui != null ? gui.OpenContainer() : null;
             if (chest == null)
             {
                 Casting.Message(Texts.L("Откройте сундук, затем колдуйте Пак.", "Open a chest, then cast Pack."));
@@ -586,17 +587,9 @@ namespace Wizardry
                 if (go.name.StartsWith("Beard")) beard.Add(go.name);
             }
 
-            if (hair.Count > 0)
-            {
-                caster.m_hairItem = hair[UnityEngine.Random.Range(0, hair.Count)];
-            }
-
-            if (beard.Count > 0 && UnityEngine.Random.value < 0.5f)
-            {
-                caster.m_beardItem = beard[UnityEngine.Random.Range(0, beard.Count)];
-            }
-
-            caster.SetupEquipment();
+            string newHair = hair.Count > 0 ? hair[UnityEngine.Random.Range(0, hair.Count)] : null;
+            string newBeard = beard.Count > 0 && UnityEngine.Random.value < 0.5f ? beard[UnityEngine.Random.Range(0, beard.Count)] : null;
+            caster.SetLooks(newHair, newBeard);
 
             Fx.Send(FxKind.Buff, caster.transform.position, Vector3.up, "crinus_muto", 0f);
         }

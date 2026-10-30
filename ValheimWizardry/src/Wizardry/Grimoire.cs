@@ -1105,7 +1105,7 @@ namespace Wizardry
     }
 
     /// <summary>While the grimoire is open the mouse is free and the character does not turn or attack.</summary>
-    [HarmonyPatch(typeof(GameCamera), nameof(GameCamera.UpdateMouseCapture))]
+    [HarmonyPatch(typeof(GameCamera), "UpdateMouseCapture")]
     internal static class GrimoireMouse
     {
         private static bool Prefix()
@@ -1121,7 +1121,7 @@ namespace Wizardry
         }
     }
 
-    [HarmonyPatch(typeof(PlayerController), nameof(PlayerController.TakeInput))]
+    [HarmonyPatch(typeof(PlayerController), "TakeInput")]
     internal static class GrimoireInput
     {
         private static void Postfix(ref bool __result)

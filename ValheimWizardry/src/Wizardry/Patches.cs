@@ -65,9 +65,9 @@ namespace Wizardry
         [HarmonyPatch(typeof(SEMan), nameof(SEMan.ModifyBlockStaminaUsage))]
         private static class BlockCost
         {
-            private static void Postfix(SEMan __instance, ref float staminaUse)
+            private static void Postfix(SEMan __instance, Character ___m_character, ref float staminaUse)
             {
-                var p = __instance.m_character as Player;
+                var p = ___m_character as Player;
                 var w = LocalState(p);
                 if (w == null || Wands.Equipped(p) == null || staminaUse <= 0f)
                 {
@@ -83,12 +83,12 @@ namespace Wizardry
             }
         }
 
-        [HarmonyPatch(typeof(Humanoid), nameof(Humanoid.BlockAttack))]
+        [HarmonyPatch(typeof(Humanoid), "BlockAttack")]
         private static class Parry
         {
-            private static void Prefix(Humanoid __instance, out float __state)
+            private static void Prefix(float ___m_blockTimer, out float __state)
             {
-                __state = __instance.m_blockTimer;
+                __state = ___m_blockTimer;
             }
 
             private static void Postfix(Humanoid __instance, HitData hit, bool __result, float __state)
@@ -139,7 +139,7 @@ namespace Wizardry
         }
 
         /// <summary>The victim's side (runs on the owner): Protego, resistances, dodging, the Elixir and the guardians.</summary>
-        [HarmonyPatch(typeof(Character), nameof(Character.RPC_Damage))]
+        [HarmonyPatch(typeof(Character), "RPC_Damage")]
         private static class DamageIn
         {
             private static bool Prefix(Character __instance, HitData hit)
@@ -261,7 +261,7 @@ namespace Wizardry
         }
 
         /// <summary>On every owner: Vulnerable, Armor broken and Marked creatures take more damage.</summary>
-        [HarmonyPatch(typeof(Character), nameof(Character.RPC_Damage))]
+        [HarmonyPatch(typeof(Character), "RPC_Damage")]
         private static class StatusDamage
         {
             private static void Prefix(Character __instance, HitData hit)
@@ -304,7 +304,7 @@ namespace Wizardry
         }
 
         // ------------------------------------------------------------------ the wizard's passive numbers
-        [HarmonyPatch(typeof(Player), nameof(Player.GetTotalFoodValue))]
+        [HarmonyPatch(typeof(Player), "GetTotalFoodValue")]
         private static class FoodValues
         {
             private static void Postfix(Player __instance, ref float hp, ref float eitr)
@@ -337,9 +337,9 @@ namespace Wizardry
         [HarmonyPatch(typeof(SEMan), nameof(SEMan.ApplyStatusEffectSpeedMods))]
         private static class Speed
         {
-            private static void Postfix(SEMan __instance, ref float speed)
+            private static void Postfix(SEMan __instance, Character ___m_character, ref float speed)
             {
-                var w = LocalState(__instance.m_character);
+                var w = LocalState(___m_character);
                 if (w != null)
                 {
                     speed *= Mathf.Max(0.2f, 1f + w.Stats.Get(Stat.move_speed, Casting.Now(Player.m_localPlayer, w)) / 100f);
@@ -350,9 +350,9 @@ namespace Wizardry
         [HarmonyPatch(typeof(SEMan), nameof(SEMan.ModifyStaminaRegen))]
         private static class StaminaRegen
         {
-            private static void Postfix(SEMan __instance, ref float staminaMultiplier)
+            private static void Postfix(SEMan __instance, Character ___m_character, ref float staminaMultiplier)
             {
-                var w = LocalState(__instance.m_character);
+                var w = LocalState(___m_character);
                 if (w != null) staminaMultiplier *= Mathf.Max(0f, 1f + w.Stats.Get(Stat.stam_regen) / 100f);
             }
         }
@@ -360,9 +360,9 @@ namespace Wizardry
         [HarmonyPatch(typeof(SEMan), nameof(SEMan.ModifyEitrRegen))]
         private static class EitrRegen
         {
-            private static void Postfix(SEMan __instance, ref float eitrMultiplier)
+            private static void Postfix(SEMan __instance, Character ___m_character, ref float eitrMultiplier)
             {
-                var w = LocalState(__instance.m_character);
+                var w = LocalState(___m_character);
                 if (w != null) eitrMultiplier *= Mathf.Max(0f, 1f + w.Stats.Get(Stat.eitr_regen) / 100f);
             }
         }
@@ -370,9 +370,9 @@ namespace Wizardry
         [HarmonyPatch(typeof(SEMan), nameof(SEMan.ModifyHealthRegen))]
         private static class HealthRegen
         {
-            private static void Postfix(SEMan __instance, ref float regenMultiplier)
+            private static void Postfix(SEMan __instance, Character ___m_character, ref float regenMultiplier)
             {
-                var w = LocalState(__instance.m_character);
+                var w = LocalState(___m_character);
                 if (w != null) regenMultiplier *= Mathf.Max(0f, 1f + w.Stats.Get(Stat.hp_regen) / 100f);
             }
         }
@@ -380,9 +380,9 @@ namespace Wizardry
         [HarmonyPatch(typeof(SEMan), nameof(SEMan.ModifyMaxCarryWeight))]
         private static class Carry
         {
-            private static void Postfix(SEMan __instance, ref float limit)
+            private static void Postfix(SEMan __instance, Character ___m_character, ref float limit)
             {
-                var w = LocalState(__instance.m_character);
+                var w = LocalState(___m_character);
                 if (w != null) limit += w.Stats.Get(Stat.carry);
             }
         }
@@ -390,9 +390,9 @@ namespace Wizardry
         [HarmonyPatch(typeof(SEMan), nameof(SEMan.ModifyStealth))]
         private static class Stealth
         {
-            private static void Postfix(SEMan __instance, ref float stealth)
+            private static void Postfix(SEMan __instance, Character ___m_character, ref float stealth)
             {
-                var w = LocalState(__instance.m_character);
+                var w = LocalState(___m_character);
                 if (w != null && w.Stats.Get(Stat.stealth) > 0f) stealth *= Mathf.Max(0.05f, 1f - w.Stats.Get(Stat.stealth) / 100f);
             }
         }
@@ -400,20 +400,20 @@ namespace Wizardry
         [HarmonyPatch(typeof(SEMan), nameof(SEMan.ModifyFallDamage))]
         private static class Fall
         {
-            private static void Postfix(SEMan __instance, ref float damage)
+            private static void Postfix(SEMan __instance, Character ___m_character, ref float damage)
             {
-                var w = LocalState(__instance.m_character);
+                var w = LocalState(___m_character);
                 if (w != null) damage *= Mathf.Clamp01(1f - w.Stats.Get(Stat.fall_res) / 100f);
-                if (__instance.m_character == Player.m_localPlayer && Time.time < Mobility.SafeLandingUntil) damage = 0f;
+                if (___m_character == Player.m_localPlayer && Time.time < Mobility.SafeLandingUntil) damage = 0f;
             }
         }
 
         [HarmonyPatch(typeof(SEMan), nameof(SEMan.ModifyRunStaminaDrain))]
         private static class RunDrain
         {
-            private static void Postfix(SEMan __instance, ref float drain)
+            private static void Postfix(SEMan __instance, Character ___m_character, ref float drain)
             {
-                var w = LocalState(__instance.m_character);
+                var w = LocalState(___m_character);
                 if (w != null) drain *= Mathf.Max(0f, 1f - w.Stats.Get(Stat.run_stam) / 100f);
             }
         }
@@ -422,10 +422,10 @@ namespace Wizardry
         [HarmonyPatch(typeof(SEMan), nameof(SEMan.AddStatusEffect), typeof(StatusEffect), typeof(bool), typeof(int), typeof(float), typeof(short))]
         private static class AddStatus
         {
-            private static bool Prefix(SEMan __instance, StatusEffect statusEffect, ref StatusEffect __result)
+            private static bool Prefix(SEMan __instance, Character ___m_character, StatusEffect statusEffect, ref StatusEffect __result)
             {
-                if (statusEffect != null && __instance.m_character == Player.m_localPlayer &&
-                    (statusEffect.name == "Cold" || statusEffect.name == "Freezing") && Buffs.Value(__instance.m_character, "coldimm") > 0f)
+                if (statusEffect != null && ___m_character == Player.m_localPlayer &&
+                    (statusEffect.name == "Cold" || statusEffect.name == "Freezing") && Buffs.Value(___m_character, "coldimm") > 0f)
                 {
                     __result = null;
                     return false;
@@ -434,10 +434,10 @@ namespace Wizardry
                 return true;
             }
 
-            private static void Postfix(SEMan __instance, StatusEffect __result)
+            private static void Postfix(SEMan __instance, Character ___m_character, StatusEffect __result)
             {
-                var w = LocalState(__instance.m_character);
-                if (w != null && __result != null && __result.name.StartsWith("Potion_") && w.Stats.Get(Stat.mead_dur) > 0f && __result.m_time < 0.1f)
+                var w = LocalState(___m_character);
+                if (w != null && __result != null && __result.name.StartsWith("Potion_") && w.Stats.Get(Stat.mead_dur) > 0f && __result.Elapsed() < 0.1f)
                 {
                     __result.m_ttl *= 1f + w.Stats.Get(Stat.mead_dur) / 100f;
                 }
@@ -462,7 +462,7 @@ namespace Wizardry
 
         // ------------------------------------------------------------------ the world
         /// <summary>Fortifundus, Fianto Duri and the Great Dome harden buildings; the wizard's own buildings resist more.</summary>
-        [HarmonyPatch(typeof(WearNTear), nameof(WearNTear.RPC_Damage))]
+        [HarmonyPatch(typeof(WearNTear), "RPC_Damage")]
         private static class Fortify
         {
             private static void Prefix(WearNTear __instance, HitData hit)
@@ -512,7 +512,7 @@ namespace Wizardry
         }
 
         /// <summary>Capacious Extremis: an extended chest gets its extra rows before its items load.</summary>
-        [HarmonyPatch(typeof(Container), nameof(Container.Awake))]
+        [HarmonyPatch(typeof(Container), "Awake")]
         private static class ChestRows
         {
             private static void Prefix(Container __instance)
@@ -533,7 +533,7 @@ namespace Wizardry
         }
 
         /// <summary>Raids do not choose players hidden by the Fidelius Charm.</summary>
-        [HarmonyPatch(typeof(RandEventSystem), nameof(RandEventSystem.CheckBase))]
+        [HarmonyPatch(typeof(RandEventSystem), "CheckBase")]
         private static class Raids
         {
             private static bool Prefix(RandEventSystem.PlayerEventData player, ref bool __result)
@@ -576,9 +576,10 @@ namespace Wizardry
     [HarmonyPatch(typeof(MonsterAI), nameof(MonsterAI.UpdateAI))]
     internal static class MindPatch
     {
-        private static bool Prefix(MonsterAI __instance, float dt, ref bool __result)
+        private static bool Prefix(MonsterAI __instance, float dt, ref bool __result, Character ___m_character,
+            ref Character ___m_targetCreature, ref StaticTarget ___m_targetStatic)
         {
-            var c = __instance.m_character;
+            var c = ___m_character;
             if (c == null || c.IsDead())
             {
                 return true;
@@ -594,28 +595,28 @@ namespace Wizardry
             if (Effects.Has(c, "fear"))
             {
                 var from = Player.m_localPlayer != null ? Player.m_localPlayer.transform.position : c.transform.position + c.transform.forward;
-                var target = __instance.m_targetCreature;
+                var target = ___m_targetCreature;
                 if (target != null)
                 {
                     from = target.transform.position;
                 }
 
-                __instance.Flee(dt, from);
+                __instance.FleeFrom(dt, from);
                 __result = true;
                 return false;
             }
 
             if (Effects.Has(c, "confuse"))
             {
-                __instance.RandomMovement(dt, c.transform.position);
+                __instance.Wander(dt, c.transform.position);
                 __result = true;
                 return false;
             }
 
             if (Effects.Has(c, "blind"))
             {
-                __instance.m_targetCreature = null;
-                __instance.m_targetStatic = null;
+                ___m_targetCreature = null;
+                ___m_targetStatic = null;
             }
 
             return true;

@@ -40,7 +40,7 @@ namespace Wizardry
                 }
                 catch (Exception e)
                 {
-                    Plugin.Log.LogWarning("Delayed spell work failed: " + e.Message);
+                    Plugin.Report("Delayed spell work", e);
                 }
             }
         }

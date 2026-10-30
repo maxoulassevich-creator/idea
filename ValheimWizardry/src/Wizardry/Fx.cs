@@ -50,7 +50,7 @@ namespace Wizardry
 
         public static void SendStatus(Character target, string key, string variant, float duration)
         {
-            var zdo = target != null && target.m_nview != null ? target.m_nview.GetZDO() : null;
+            var zdo = target != null && target.Nv() != null ? target.Nv().GetZDO() : null;
             if (zdo == null)
             {
                 return;
@@ -75,7 +75,7 @@ namespace Wizardry
             }
             catch (Exception e)
             {
-                Plugin.Log.LogDebug("Effect message failed: " + e.Message);
+                Plugin.Report("Effect message", e);
             }
         }
 

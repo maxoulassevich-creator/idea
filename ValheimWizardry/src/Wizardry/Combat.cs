@@ -119,7 +119,7 @@ namespace Wizardry
                 return "";
             }
 
-            var nv = c.m_nview;
+            var nv = c.Nv();
             string n = c.gameObject.name;
             int p = n.IndexOf('(');
             return p > 0 ? n.Substring(0, p) : n;

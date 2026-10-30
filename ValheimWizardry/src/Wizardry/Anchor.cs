@@ -168,7 +168,7 @@ namespace Wizardry
             }
             catch (System.Exception e)
             {
-                Plugin.Log.LogWarning("Could not draw " + Type + ": " + e.Message);
+                Plugin.Report("Anchor " + Type, e);
             }
         }
 
@@ -253,7 +253,7 @@ namespace Wizardry
                 }
                 catch (System.Exception e)
                 {
-                    Plugin.Log.LogDebug("Zone tick failed: " + e.Message);
+                    Plugin.Report("Zone " + Type, e);
                 }
             }
         }
@@ -271,23 +271,23 @@ namespace Wizardry
             switch (Type)
             {
                 case "bounce":
-                    if (inside && me.IsOnGround() && me.m_body != null)
+                    if (inside && me.IsOnGround() && me.Body() != null)
                     {
                         Effects.ApplyLocal(me, new StatusOrder { Key = "buff", SeName = "WZ_buff", Duration = 5f, Buffs = "falldmg:-100" });
-                        var v = me.m_body.velocity;
+                        var v = me.Body().velocity;
                         v.y = 14f;
-                        me.m_body.velocity = v;
+                        me.Body().velocity = v;
                         Fx.Sound(me.transform.position, "pop", 0.5f);
                     }
 
                     break;
                 case "ageline":
                     var w = Wizard.State;
-                    if (inside && me.GetPlayerID() != Owner && (w == null || w.Year < 3) && me.m_body != null)
+                    if (inside && me.GetPlayerID() != Owner && (w == null || w.Year < 3) && me.Body() != null)
                     {
                         Vector3 out1 = me.transform.position - transform.position;
                         out1.y = 0f;
-                        me.m_body.velocity = out1.normalized * 9f + Vector3.up * 4f;
+                        me.Body().velocity = out1.normalized * 9f + Vector3.up * 4f;
                         Casting.Message(Texts.L("Возрастная черта не пускает вас.", "The Age Line throws you back."));
                     }
 
@@ -579,12 +579,12 @@ namespace Wizardry
 
             foreach (var pr in s_projectiles)
             {
-                if (pr == null || pr.m_nview == null || !pr.m_nview.IsValid() || !pr.m_nview.IsOwner())
+                if (pr == null || pr.Nv() == null || !pr.Nv().IsValid() || !pr.Nv().IsOwner())
                 {
                     continue;
                 }
 
-                var owner = pr.m_owner;
+                var owner = pr.Owner();
                 if (owner != null && (owner.IsPlayer() || owner.IsTamed()))
                 {
                     continue;
@@ -593,7 +593,7 @@ namespace Wizardry
                 if (Vector3.Distance(pr.transform.position, transform.position) <= Radius)
                 {
                     Fx.Burst(pr.transform.position, 0.6f, m_color, 0.6f);
-                    pr.m_nview.Destroy();
+                    pr.Nv().Destroy();
                 }
             }
         }

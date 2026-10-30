@@ -239,7 +239,7 @@ namespace Wizardry
                 return;
             }
 
-            map.Explore(caster.transform.position, r * 3f);
+            map.ExploreAt(caster.transform.position, r * 3f);
             var pins = new List<Minimap.PinData>();
             foreach (var c in Character.GetAllCharacters())
             {

@@ -171,7 +171,7 @@ namespace Wizardry
                 var ai = m_character.GetBaseAI() as MonsterAI;
                 if (ai != null)
                 {
-                    ai.SetTarget(null);
+                    ai.SetTargetCreature(null);
                 }
             }
 
@@ -180,29 +180,29 @@ namespace Wizardry
                 var ai = m_character.GetBaseAI();
                 if (ai != null)
                 {
-                    ai.SetAlerted(false);
+                    ai.SetAlertedState(false);
                     var mai = ai as MonsterAI;
                     if (mai != null)
                     {
-                        mai.SetTarget(null);
+                        mai.SetTargetCreature(null);
                     }
                 }
             }
 
-            if (Def.Kind == StatusKind.Lift && m_character.m_body != null)
+            if (Def.Kind == StatusKind.Lift && m_character.Body() != null)
             {
-                var v = m_character.m_body.velocity;
+                var v = m_character.Body().velocity;
                 v.y = Mathf.Max(v.y, Power);
-                m_character.m_body.velocity = v;
+                m_character.Body().velocity = v;
             }
         }
 
         public override void Stop()
         {
-            if (Def != null && Def.Kind == StatusKind.Poly && m_character != null && m_character.m_nview != null &&
-                m_character.m_nview.IsOwner() && m_character.m_nview.GetZDO() != null)
+            if (Def != null && Def.Kind == StatusKind.Poly && m_character != null && m_character.Nv() != null &&
+                m_character.Nv().IsOwner() && m_character.Nv().GetZDO() != null)
             {
-                Fx.Send(FxKind.Poly, m_character.transform.position, Vector3.up, "", 0f, "", m_character.m_nview.GetZDO().m_uid);
+                Fx.Send(FxKind.Poly, m_character.transform.position, Vector3.up, "", 0f, "", m_character.Nv().GetZDO().m_uid);
             }
 
             if (m_factionChanged && m_character != null)
@@ -212,7 +212,7 @@ namespace Wizardry
                 var ai = m_character.GetBaseAI() as MonsterAI;
                 if (ai != null)
                 {
-                    ai.SetTarget(null);
+                    ai.SetTargetCreature(null);
                 }
             }
 
@@ -262,19 +262,19 @@ namespace Wizardry
                 case StatusKind.Root:
                 case StatusKind.Stun:
                 case StatusKind.Poly:
-                    if (m_character.m_body != null && m_character.IsOnGround())
+                    if (m_character.Body() != null && m_character.IsOnGround())
                     {
-                        var v = m_character.m_body.velocity;
-                        m_character.m_body.velocity = new Vector3(0f, v.y, 0f);
+                        var v = m_character.Body().velocity;
+                        m_character.Body().velocity = new Vector3(0f, v.y, 0f);
                     }
 
                     break;
                 case StatusKind.Lift:
-                    if (m_character.m_body != null && m_time < 0.6f)
+                    if (m_character.Body() != null && m_time < 0.6f)
                     {
-                        var v = m_character.m_body.velocity;
+                        var v = m_character.Body().velocity;
                         v.y = Mathf.Max(v.y, Power * 0.5f);
-                        m_character.m_body.velocity = v;
+                        m_character.Body().velocity = v;
                     }
 
                     break;
@@ -296,7 +296,7 @@ namespace Wizardry
                         var ai = m_character.GetBaseAI() as MonsterAI;
                         if (ai != null && !Source.IsDead())
                         {
-                            ai.SetTarget(Source);
+                            ai.SetTargetCreature(Source);
                         }
                     }
 

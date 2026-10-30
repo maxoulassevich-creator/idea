@@ -34,7 +34,7 @@ namespace Wizardry
 
             if (p != null && Time.time < SafeLandingUntil)
             {
-                p.m_maxAirAltitude = p.transform.position.y;
+                p.SetMaxAirAltitude(p.transform.position.y);
             }
         }
 
@@ -102,13 +102,13 @@ namespace Wizardry
             }
 
             caster.transform.position = to;
-            if (caster.m_body != null)
+            if (caster.Body() != null)
             {
-                caster.m_body.position = to;
-                caster.m_body.velocity = Vector3.zero;
+                caster.Body().position = to;
+                caster.Body().velocity = Vector3.zero;
             }
 
-            caster.m_maxAirAltitude = to.y;
+            caster.SetMaxAirAltitude(to.y);
             Fx.Send(FxKind.Blink, to, Vector3.up, "apparition", 0f);
         }
 
@@ -129,13 +129,13 @@ namespace Wizardry
 
         public static void Leap(Player caster, float height)
         {
-            if (caster.m_body == null)
+            if (caster.Body() == null)
             {
                 return;
             }
 
             Vector3 fwd = caster.transform.forward;
-            caster.m_body.velocity = Vector3.up * Mathf.Sqrt(2f * 9.81f * height) + fwd * 4f;
+            caster.Body().velocity = Vector3.up * Mathf.Sqrt(2f * 9.81f * height) + fwd * 4f;
             SafeLandingUntil = Time.time + 4f;
             Fx.Send(FxKind.Burst, caster.transform.position, Vector3.up, "ascendio", 1.5f);
         }
@@ -145,7 +145,7 @@ namespace Wizardry
             Vector3 end;
             range *= c.SpeedMult;
             var t = SpellOps.RayTarget(c, range, out end);
-            if (t != null || caster.m_body == null)
+            if (t != null || caster.Body() == null)
             {
                 return; // creatures are pulled by the "pull" operation
             }
@@ -156,7 +156,7 @@ namespace Wizardry
                 return;
             }
 
-            caster.m_body.velocity = to.normalized * Mathf.Min(28f, 8f + to.magnitude) + Vector3.up * 4f;
+            caster.Body().velocity = to.normalized * Mathf.Min(28f, 8f + to.magnitude) + Vector3.up * 4f;
             SafeLandingUntil = Time.time + 4f;
             Fx.Send(FxKind.Beam, Wands.Tip(caster), end - Wands.Tip(caster), "carpe_retractum", 0.4f);
         }
@@ -188,13 +188,13 @@ namespace Wizardry
 
             Fx.Send(FxKind.Blink, caster.transform.position, Vector3.up, "hour_reversal", 0f);
             caster.transform.position = snap.Pos;
-            if (caster.m_body != null)
+            if (caster.Body() != null)
             {
-                caster.m_body.position = snap.Pos;
-                caster.m_body.velocity = Vector3.zero;
+                caster.Body().position = snap.Pos;
+                caster.Body().velocity = Vector3.zero;
             }
 
-            caster.m_maxAirAltitude = snap.Pos.y;
+            caster.SetMaxAirAltitude(snap.Pos.y);
             if (snap.Hp > caster.GetHealth())
             {
                 caster.Heal(snap.Hp - caster.GetHealth(), true);
@@ -227,20 +227,20 @@ namespace Wizardry
     {
         private static void Postfix(Character __instance)
         {
-            if (!Mobility.Flying || __instance != Player.m_localPlayer || __instance.m_body == null || __instance.IsDead())
+            if (!Mobility.Flying || __instance != Player.m_localPlayer || __instance.Body() == null || __instance.IsDead())
             {
                 return;
             }
 
             var p = (Player)__instance;
-            float speed = p.m_run ? 14f : 8f;
-            Vector3 v = p.m_moveDir * speed;
+            float speed = p.IsRunning() ? 14f : 8f;
+            Vector3 v = p.GetMoveDir() * speed;
             bool up = ZInput.GetButton("Jump") || ZInput.GetButton("JoyJump");
             bool down = ZInput.GetButton("Crouch") || ZInput.GetButton("JoyCrouch");
             v.y = up ? 6f : down ? -6f : Mathf.Sin(Time.time * 2f) * 0.3f;
-            p.m_body.useGravity = false;
-            p.m_body.velocity = Vector3.Lerp(p.m_body.velocity, v, 0.2f);
-            p.m_maxAirAltitude = p.transform.position.y;
+            p.Body().useGravity = false;
+            p.Body().velocity = Vector3.Lerp(p.Body().velocity, v, 0.2f);
+            p.SetMaxAirAltitude(p.transform.position.y);
             if (Time.frameCount % 20 == 0)
             {
                 Fx.Rising(p.transform.position, 0.3f, new Color(0.8f, 0.85f, 1f), 0.5f, 6);
@@ -280,9 +280,9 @@ namespace Wizardry
         public static void Update()
         {
             var ship = Ship.GetLocalShip();
-            if (Time.time < s_rowUntil && ship != null && ship.m_nview != null && ship.m_nview.IsOwner() && ship.m_body != null)
+            if (Time.time < s_rowUntil && ship != null && ship.Nv() != null && ship.Nv().IsOwner() && ship.Body() != null)
             {
-                ship.m_body.AddForce(ship.transform.forward * 3.5f, ForceMode.Acceleration);
+                ship.Body().AddForce(ship.transform.forward * 3.5f, ForceMode.Acceleration);
             }
 
             bool wind = Time.time < s_windUntil && ship != null && EnvMan.instance != null;
@@ -332,7 +332,7 @@ namespace Wizardry
                 return;
             }
 
-            if (EnvMan.instance.GetEnv(env) == null)
+            if (EnvMan.instance.m_environments.Find(e => e.m_name == env) == null)
             {
                 return;
             }
@@ -346,7 +346,7 @@ namespace Wizardry
         {
             if (s_forced != null && Time.time > s_until && EnvMan.instance != null)
             {
-                if (EnvMan.instance.m_forceEnv == s_forced)
+                if (EnvMan.instance.ForcedEnvironment() == s_forced)
                 {
                     EnvMan.instance.SetForceEnvironment("");
                 }

@@ -248,7 +248,7 @@ namespace Wizardry
                 Casting.Message(Texts.L("Исчезательный шкаф: из тайника пришло ", "Vanishing Cabinet: arrived from the vault: ") + moved);
             }
 
-            chest.Save();
+            chest.SaveNow();
             Fx.Send(FxKind.Ceremony, chest.transform.position, Vector3.up, "vanishing_cabinet", 0f, "cabinet");
         }
 
@@ -290,8 +290,8 @@ namespace Wizardry
             }
 
             nv.GetZDO().Set(RowsKey, rows + 1);
-            chest.GetInventory().m_height += 1;
-            chest.Save();
+            chest.GetInventory().SetHeight(chest.GetInventory().GetHeight() + 1);
+            chest.SaveNow();
             Fx.Send(FxKind.Ceremony, chest.transform.position, Vector3.up, "extension_charm", 0f, "extend");
             Casting.Message(Texts.L("Сундук стал больше изнутри: +1 ряд (", "The chest is bigger inside: +1 row (") + (rows + 1) + "/3)");
         }

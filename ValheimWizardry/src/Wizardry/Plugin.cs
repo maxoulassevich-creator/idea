@@ -16,7 +16,7 @@ namespace Wizardry
     internal sealed class Plugin : BaseUnityPlugin
     {
         public const string Guid = "com.oulassevich.wizardry";
-        public const string Version = "1.0.0";
+        public const string Version = "1.0.1";
 
         public static ManualLogSource Log;
         public static Skills.SkillType SkillType;
@@ -97,7 +97,7 @@ namespace Wizardry
             }
             catch (Exception e)
             {
-                Log.LogError("Update failed: " + e);
+                Report("Update", e);
             }
         }
 
@@ -110,7 +110,28 @@ namespace Wizardry
             }
             catch (Exception e)
             {
-                Log.LogError("GUI failed: " + e.Message);
+                Report("GUI", e);
+            }
+        }
+
+        private static readonly System.Collections.Generic.Dictionary<string, int> s_errors = new System.Collections.Generic.Dictionary<string, int>();
+
+        /// <summary>
+        /// Logs an error in full the first time it happens. The per-frame loops would otherwise repeat it every frame,
+        /// so repeats are only counted and mentioned again every 1000th time.
+        /// </summary>
+        public static void Report(string where, Exception e)
+        {
+            string key = where + "|" + e.GetType().Name + "|" + e.Message;
+            s_errors.TryGetValue(key, out int n);
+            s_errors[key] = ++n;
+            if (n == 1)
+            {
+                Log.LogError(where + " failed: " + e);
+            }
+            else if (n % 1000 == 0)
+            {
+                Log.LogError(where + " failed again (" + n + " times): " + e.GetType().Name + ": " + e.Message);
             }
         }
 

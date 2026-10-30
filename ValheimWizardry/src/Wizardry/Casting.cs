@@ -158,7 +158,7 @@ namespace Wizardry
                     }
                     catch (Exception e)
                     {
-                        Plugin.Log.LogWarning("Repeat failed: " + e.Message);
+                        Plugin.Report("Repeat", e);
                     }
                 }
             }
@@ -439,7 +439,7 @@ namespace Wizardry
 
         private static void Animate(Player p, SpellDef s)
         {
-            if (!ModConfig.Animations.Value || p.m_zanim == null)
+            if (!ModConfig.Animations.Value || p.GetZAnim() == null)
             {
                 return;
             }
@@ -458,7 +458,7 @@ namespace Wizardry
 
             try
             {
-                p.m_zanim.SetTrigger(trigger);
+                p.GetZAnim().SetTrigger(trigger);
             }
             catch (Exception)
             {
@@ -619,7 +619,7 @@ namespace Wizardry
             }
             catch (Exception e)
             {
-                Plugin.Log.LogError("Spell " + s.Id + " failed: " + e);
+                Plugin.Report("Spell " + s.Id, e);
             }
 
             if (ctx.Patterns.Contains("a_wave") && s.Spec.Delivery != "chan") Schedule(ctx, 1f, 0.6f);
@@ -882,7 +882,7 @@ namespace Wizardry
 
         public static void ToggleLumos(Player p, bool on)
         {
-            var zdo = p.m_nview != null ? p.m_nview.GetZDO() : null;
+            var zdo = p.Nv() != null ? p.Nv().GetZDO() : null;
             if (zdo != null)
             {
                 zdo.Set("wz_lumos", on);

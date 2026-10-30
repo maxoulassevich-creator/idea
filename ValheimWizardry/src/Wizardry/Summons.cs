@@ -106,7 +106,7 @@ namespace Wizardry
             var prefab = ZNetScene.instance.GetPrefab(prefabName);
             var go = Object.Instantiate(prefab, pos, Quaternion.LookRotation(caster.transform.forward));
             var ch = go.GetComponent<Character>();
-            var zdo = ch != null && ch.m_nview != null ? ch.m_nview.GetZDO() : null;
+            var zdo = ch != null && ch.Nv() != null ? ch.Nv().GetZDO() : null;
             if (zdo == null)
             {
                 Object.Destroy(go);
@@ -167,7 +167,7 @@ namespace Wizardry
 
         public static void OnCharacterAwake(Character c)
         {
-            var zdo = c != null && c.m_nview != null ? c.m_nview.GetZDO() : null;
+            var zdo = c != null && c.Nv() != null ? c.Nv().GetZDO() : null;
             if (zdo != null && zdo.GetLong("wz_summoner") != 0L)
             {
                 Attach(c);
@@ -192,7 +192,7 @@ namespace Wizardry
         {
             var caster = c.Caster;
             var w = c.W;
-            var zdo = caster.m_nview != null ? caster.m_nview.GetZDO() : null;
+            var zdo = caster.Nv() != null ? caster.Nv().GetZDO() : null;
             if (zdo == null)
             {
                 return;
@@ -445,7 +445,7 @@ namespace Wizardry
             var drop = GetComponent<CharacterDrop>();
             if (drop != null)
             {
-                drop.m_dropsEnabled = false;
+                drop.SetDropsEnabled(false);
             }
 
             if (Tag == "ghost" || Tag == "decoy")

@@ -115,7 +115,7 @@ namespace Wizardry
                 return null;
             }
 
-            var r = p.GetRightItem();
+            var r = p.RightItem();
             return IsWand(r) ? r : null;
         }
 

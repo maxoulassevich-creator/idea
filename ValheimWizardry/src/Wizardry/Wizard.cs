@@ -33,35 +33,29 @@ namespace Wizardry
                 }
             }
 
-            UpdateLumos();
-            Effects.Prune();
-            Weather.Update();
+            // each part runs on its own: one that fails must not stop the others
+            try { UpdateLumos(); } catch (Exception e) { Plugin.Report("Lumos", e); }
+            try { Effects.Prune(); } catch (Exception e) { Plugin.Report("Effects", e); }
+            try { Weather.Update(); } catch (Exception e) { Plugin.Report("Weather", e); }
             if (p == null || State == null)
             {
                 return;
             }
 
-            Mobility.Update(p);
-            Ships.Update();
+            try { Mobility.Update(p); } catch (Exception e) { Plugin.Report("Mobility", e); }
+            try { Ships.Update(); } catch (Exception e) { Plugin.Report("Ships", e); }
 
             s_statsTimer += Time.deltaTime;
             if (s_statsTimer > 1f)
             {
                 s_statsTimer = 0f;
-                State.RebuildStats(p);
-                Universalist(State);
-                Guardians.Publish(p, State);
-                Hallows.Update(p, State);
+                try { State.RebuildStats(p); } catch (Exception e) { Plugin.Report("Stats", e); }
+                try { Universalist(State); } catch (Exception e) { Plugin.Report("Universalist", e); }
+                try { Guardians.Publish(p, State); } catch (Exception e) { Plugin.Report("Guardians", e); }
+                try { Hallows.Update(p, State); } catch (Exception e) { Plugin.Report("Hallows", e); }
             }
 
-            try
-            {
-                Casting.Update(p, State);
-            }
-            catch (Exception e)
-            {
-                Plugin.Log.LogError("Casting update failed: " + e);
-            }
+            try { Casting.Update(p, State); } catch (Exception e) { Plugin.Report("Casting", e); }
         }
 
         /// <summary>The Universalist notable: +4% damage per school in the bar.</summary>
@@ -132,7 +126,7 @@ namespace Wizardry
             s_lumosTimer = 0.4f;
             foreach (var pl in Player.GetAllPlayers())
             {
-                var zdo = pl != null && pl.m_nview != null ? pl.m_nview.GetZDO() : null;
+                var zdo = pl != null && pl.Nv() != null ? pl.Nv().GetZDO() : null;
                 if (zdo == null)
                 {
                     continue;
@@ -190,8 +184,8 @@ namespace Wizardry
 
         public static void Publish(Player p, WizardState w)
         {
-            var zdo = p.m_nview != null ? p.m_nview.GetZDO() : null;
-            if (zdo == null || !p.m_nview.IsOwner())
+            var zdo = p.Nv() != null ? p.Nv().GetZDO() : null;
+            if (zdo == null || !p.Nv().IsOwner())
             {
                 return;
             }
@@ -214,7 +208,7 @@ namespace Wizardry
                     continue;
                 }
 
-                var zdo = pl.m_nview != null ? pl.m_nview.GetZDO() : null;
+                var zdo = pl.Nv() != null ? pl.Nv().GetZDO() : null;
                 int f = zdo != null ? zdo.GetInt(Key) : 0;
                 if (f != 0 && Vector3.Distance(pl.transform.position, victim.transform.position) < 15f)
                 {

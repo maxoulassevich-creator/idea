@@ -78,7 +78,7 @@ namespace Wizardry
             return null;
         }
 
-        [HarmonyPatch(typeof(Container), nameof(Container.AddDefaultItems))]
+        [HarmonyPatch(typeof(Container), "AddDefaultItems")]
         private static class Chests
         {
             private static void Postfix(Container __instance)

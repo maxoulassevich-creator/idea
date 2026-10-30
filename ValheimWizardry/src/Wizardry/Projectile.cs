@@ -138,7 +138,7 @@ namespace Wizardry
                         }
                         catch (Exception e)
                         {
-                            Plugin.Log.LogWarning("Spell hit failed: " + e.Message);
+                            Plugin.Report("Spell hit", e);
                         }
                     }
 
