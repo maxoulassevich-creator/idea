@@ -10,7 +10,7 @@
     <AssemblyName>Wizardry</AssemblyName>
     <RootNamespace>Wizardry</RootNamespace>
     <Product>Wizardry</Product>
-    <Version>1.0.1</Version>
+    <Version>2.0.0</Version>
     <LangVersion>9.0</LangVersion>
     <DebugType>none</DebugType>
     <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>

@@ -92,7 +92,7 @@ namespace Wizardry
             book.transform.SetParent(visual.transform, false);
             book.transform.localPosition = new Vector3(0f, top, 0f);
             book.transform.localScale = Vector3.one * 0.9f;
-            var mat = Meshes.Material("codex_albedo.png", null, "codex_emission.png", Color.white, new Color(0.6f, 1.6f, 0.8f));
+            var mat = Meshes.Material("codex_albedo.png", null, "codex_emission.png", Color.white, new Color(0.22f, 0.7f, 0.3f));
             Meshes.Model(book.transform, "codex_base.wzm", mat, "Base");
             var crystals = Meshes.Model(book.transform, "codex_crystals.wzm", mat, "Crystals");
             var anim = visual.AddComponent<CodexAnim>();
@@ -104,7 +104,7 @@ namespace Wizardry
             anim.Glow.type = LightType.Point;
             anim.Glow.color = new Color(0.35f, 1f, 0.5f);
             anim.Glow.range = 4f;
-            anim.Glow.intensity = 1.2f;
+            anim.Glow.intensity = 0.9f;
             anim.Glow.shadows = LightShadows.None;
             foreach (var tip in Candles())
             {
@@ -307,47 +307,59 @@ namespace Wizardry
             var wood = VanillaMaterial("wood_beam", "wood_floor");
             var metal = VanillaMaterial("iron_wall_1x1", "piece_workbench");
             Color glowCol = new Color(0.4f, 1f, 0.6f);
-            switch (key)
+            string model = "ext_" + key + ".wzm";
+            if (Meshes.Resource(model) != null)
             {
-                case "stand":
-                    Prim(v.transform, PrimitiveType.Cube, wood, new Vector3(0f, 0.05f, 0f), new Vector3(0.6f, 0.1f, 0.3f));
-                    for (int i = 0; i < 5; i++)
-                    {
-                        Prim(v.transform, PrimitiveType.Cylinder, wood, new Vector3(-0.24f + 0.12f * i, 0.3f, 0f), new Vector3(0.025f, 0.2f, 0.025f));
-                    }
+                // the baked model from tools/make_models.py
+                glowCol = ExtensionGlow(key);
+                string em = Meshes.Resource("ext_" + key + "_emission.png") != null ? "ext_" + key + "_emission.png" : null;
+                var m = Meshes.Material("ext_" + key + "_albedo.jpg", null, em, Color.white, glowCol * 0.8f);
+                Meshes.Model(v.transform, model, m, key);
+            }
+            else
+            {
+                switch (key)
+                {
+                    case "stand":
+                        Prim(v.transform, PrimitiveType.Cube, wood, new Vector3(0f, 0.05f, 0f), new Vector3(0.6f, 0.1f, 0.3f));
+                        for (int i = 0; i < 5; i++)
+                        {
+                            Prim(v.transform, PrimitiveType.Cylinder, wood, new Vector3(-0.24f + 0.12f * i, 0.3f, 0f), new Vector3(0.025f, 0.2f, 0.025f));
+                        }
 
-                    break;
-                case "cauldron":
-                    Prim(v.transform, PrimitiveType.Sphere, metal, new Vector3(0f, 0.4f, 0f), new Vector3(0.8f, 0.6f, 0.8f));
-                    Glow(v.transform, new Vector3(0f, 0.68f, 0f), new Color(0.3f, 1f, 0.3f), 0.32f);
-                    break;
-                case "ball":
-                    Prim(v.transform, PrimitiveType.Cylinder, wood, new Vector3(0f, 0.25f, 0f), new Vector3(0.25f, 0.25f, 0.25f));
-                    Glow(v.transform, new Vector3(0f, 0.68f, 0f), new Color(0.6f, 0.8f, 1f), 0.38f);
-                    glowCol = new Color(0.6f, 0.8f, 1f);
-                    break;
-                case "pensieve":
-                    Prim(v.transform, PrimitiveType.Cylinder, stone, new Vector3(0f, 0.35f, 0f), new Vector3(0.9f, 0.35f, 0.9f));
-                    Glow(v.transform, new Vector3(0f, 0.72f, 0f), new Color(0.85f, 0.9f, 1f), 0.7f);
-                    glowCol = new Color(0.85f, 0.9f, 1f);
-                    break;
-                case "astrolabe":
-                    Prim(v.transform, PrimitiveType.Cylinder, metal, new Vector3(0f, 0.4f, 0f), new Vector3(0.06f, 0.4f, 0.06f));
-                    for (int i = 0; i < 3; i++)
-                    {
-                        var ring = Prim(v.transform, PrimitiveType.Cylinder, metal, new Vector3(0f, 0.95f, 0f), new Vector3(0.7f - 0.15f * i, 0.01f, 0.7f - 0.15f * i));
-                        ring.transform.localRotation = Quaternion.Euler(60f * i, 30f * i, 0f);
-                        ring.AddComponent<Spin>().Speed = 15f + 10f * i;
-                    }
+                        break;
+                    case "cauldron":
+                        Prim(v.transform, PrimitiveType.Sphere, metal, new Vector3(0f, 0.4f, 0f), new Vector3(0.8f, 0.6f, 0.8f));
+                        Glow(v.transform, new Vector3(0f, 0.68f, 0f), new Color(0.3f, 1f, 0.3f), 0.32f);
+                        break;
+                    case "ball":
+                        Prim(v.transform, PrimitiveType.Cylinder, wood, new Vector3(0f, 0.25f, 0f), new Vector3(0.25f, 0.25f, 0.25f));
+                        Glow(v.transform, new Vector3(0f, 0.68f, 0f), new Color(0.6f, 0.8f, 1f), 0.38f);
+                        glowCol = new Color(0.6f, 0.8f, 1f);
+                        break;
+                    case "pensieve":
+                        Prim(v.transform, PrimitiveType.Cylinder, stone, new Vector3(0f, 0.35f, 0f), new Vector3(0.9f, 0.35f, 0.9f));
+                        Glow(v.transform, new Vector3(0f, 0.72f, 0f), new Color(0.85f, 0.9f, 1f), 0.7f);
+                        glowCol = new Color(0.85f, 0.9f, 1f);
+                        break;
+                    case "astrolabe":
+                        Prim(v.transform, PrimitiveType.Cylinder, metal, new Vector3(0f, 0.4f, 0f), new Vector3(0.06f, 0.4f, 0.06f));
+                        for (int i = 0; i < 3; i++)
+                        {
+                            var ring = Prim(v.transform, PrimitiveType.Cylinder, metal, new Vector3(0f, 0.95f, 0f), new Vector3(0.7f - 0.15f * i, 0.01f, 0.7f - 0.15f * i));
+                            ring.transform.localRotation = Quaternion.Euler(60f * i, 30f * i, 0f);
+                            ring.AddComponent<Spin>().Speed = 15f + 10f * i;
+                        }
 
-                    break;
-                default:
-                    Prim(v.transform, PrimitiveType.Cylinder, metal, new Vector3(0f, 0.3f, 0f), new Vector3(0.08f, 0.3f, 0.08f));
-                    var glass = Prim(v.transform, PrimitiveType.Sphere, metal, new Vector3(0f, 0.85f, 0f), new Vector3(0.3f, 0.5f, 0.3f));
-                    glass.AddComponent<Spin>().Speed = 40f;
-                    Glow(v.transform, new Vector3(0f, 0.85f, 0f), new Color(1f, 0.85f, 0.4f), 0.2f);
-                    glowCol = new Color(1f, 0.85f, 0.4f);
-                    break;
+                        break;
+                    default:
+                        Prim(v.transform, PrimitiveType.Cylinder, metal, new Vector3(0f, 0.3f, 0f), new Vector3(0.08f, 0.3f, 0.08f));
+                        var glass = Prim(v.transform, PrimitiveType.Sphere, metal, new Vector3(0f, 0.85f, 0f), new Vector3(0.3f, 0.5f, 0.3f));
+                        glass.AddComponent<Spin>().Speed = 40f;
+                        Glow(v.transform, new Vector3(0f, 0.85f, 0f), new Color(1f, 0.85f, 0.4f), 0.2f);
+                        glowCol = new Color(1f, 0.85f, 0.4f);
+                        break;
+                }
             }
 
             var lightGo = new GameObject("Light");
@@ -359,6 +371,19 @@ namespace Wizardry
             l.intensity = 0.8f;
             l.shadows = LightShadows.None;
             PieceManager.Instance.AddPiece(piece);
+        }
+
+        private static Color ExtensionGlow(string key)
+        {
+            switch (key)
+            {
+                case "cauldron": return new Color(0.35f, 1f, 0.4f);
+                case "ball": return new Color(0.55f, 0.75f, 1f);
+                case "pensieve": return new Color(0.75f, 0.85f, 1f);
+                case "astrolabe": return new Color(0.45f, 0.6f, 1f);
+                case "turner": return new Color(1f, 0.8f, 0.4f);
+                default: return new Color(1f, 0.85f, 0.6f);
+            }
         }
 
         public static GameObject Prim(Transform parent, PrimitiveType type, Material mat, Vector3 pos, Vector3 scale)
@@ -437,6 +462,17 @@ namespace Wizardry
         {
             return s != null ? s.GetLevel() : 0;
         }
+
+        /// <summary>The nearest Codex flares up: learning, exams and new talents make its crystals spin.</summary>
+        public static void Excite(Vector3 pos)
+        {
+            var s = Nearest(pos, 15f);
+            var anim = s != null ? s.GetComponentInChildren<CodexAnim>() : null;
+            if (anim != null)
+            {
+                anim.Excite = 1f;
+            }
+        }
     }
 
     /// <summary>The Codex comes alive: crystals float and turn, the green glow breathes, candles flicker.</summary>
@@ -460,7 +496,7 @@ namespace Wizardry
 
             if (Glow != null)
             {
-                Glow.intensity = 1.1f + 0.35f * Mathf.Sin(m_t * 1.7f) + 2.5f * Excite;
+                Glow.intensity = 0.8f + 0.25f * Mathf.Sin(m_t * 1.7f) + 2f * Excite;
             }
 
             if (Candle != null)

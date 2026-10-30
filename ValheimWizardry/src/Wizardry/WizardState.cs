@@ -45,6 +45,14 @@ namespace Wizardry
         public string Horcrux;
         public int CastCount;
 
+        // 2.0: spells bought with points, talents, finished steps of the wizard's path
+        public const int CurrentVersion = 2;
+        public int Version;
+        public readonly HashSet<string> Bought = new HashSet<string>();
+        public readonly HashSet<string> Talents = new HashSet<string>();
+        public readonly HashSet<string> Quests = new HashSet<string>();
+        public bool Migrated;
+
         public readonly StatBlock Stats = new StatBlock();
 
         // ------------------------------------------------------------------ derived numbers
@@ -55,26 +63,14 @@ namespace Wizardry
             get
             {
                 float mult = Mathf.Max(0.1f, ModConfig.PointsMultiplier.Value);
-                return Mathf.RoundToInt((SkillHigh + (House != null ? 2 : 0) + 2 * Trophies.Count + Cards.Count) * mult);
+                int raw = SkillHigh + (House != null ? 2 : 0) + 2 * Trophies.Count + Cards.Count + Quests.Count + Reading.Points(this);
+                return Mathf.RoundToInt(raw * mult);
             }
         }
 
         public int PointsSpent
         {
-            get
-            {
-                int n = 0;
-                foreach (var id in Nodes.Concat(Pending))
-                {
-                    var node = TreeDb.Get(id);
-                    if (node != null)
-                    {
-                        n += node.Cost;
-                    }
-                }
-
-                return n;
-            }
+            get { return TalentTree.Spent(this) + Learning.Spent(this); }
         }
 
         public int PointsFree { get { return PointsTotal - PointsSpent; } }
@@ -351,43 +347,12 @@ namespace Wizardry
                 Stats.Add(HouseMods(House));
             }
 
-            foreach (var id in Nodes)
+            foreach (var id in Talents)
             {
-                var n = TreeDb.Get(id);
-                if (n == null || n.Type == "mastery" || n.Type == "socket")
+                var n = TalentTree.Get(id);
+                if (n != null)
                 {
-                    continue;
-                }
-
-                Stats.Add(n.Mods);
-            }
-
-            foreach (var kv in Mastery)
-            {
-                var n = TreeDb.Get(kv.Key);
-                if (n != null && Nodes.Contains(kv.Key) && kv.Value >= 0 && kv.Value < n.OptionMods.Length)
-                {
-                    Stats.Add(n.OptionMods[kv.Value]);
-                }
-            }
-
-            foreach (var kv in Sockets)
-            {
-                if (Nodes.Contains(kv.Key))
-                {
-                    Stats.Add(kv.Value);
-                }
-            }
-
-            var spec = TreeDb.Spec(Spec);
-            if (spec != null)
-            {
-                foreach (var n in spec.Nodes)
-                {
-                    if (SpecNodes.Contains(n.Id))
-                    {
-                        Stats.Add(n.Mods);
-                    }
+                    Stats.Add(n.Mods);
                 }
             }
 
@@ -423,12 +388,27 @@ namespace Wizardry
                 }
             }
 
-            if (s.House != null)
+            if (s.Version < CurrentVersion)
             {
-                s.Nodes.Add(TreeDb.HouseStart(s.House));
+                s.Migrate();
             }
 
             return s;
+        }
+
+        /// <summary>1.x saves: the old 457-node tree, sockets, masteries and callings are gone, so their points come back.</summary>
+        private void Migrate()
+        {
+            Migrated = Nodes.Count > 0 || SpecNodes.Count > 0;
+            Nodes.Clear();
+            Pending.Clear();
+            Mastery.Clear();
+            Sockets.Clear();
+            SpecNodes.Clear();
+            Spec = null;
+            Meta.Clear();
+            FreeRefunds = 0;
+            Version = CurrentVersion;
         }
 
         public void Save(Player player)
@@ -471,6 +451,10 @@ namespace Wizardry
             Line(sb, "colour", Colour);
             Line(sb, "horcrux", Horcrux);
             Line(sb, "casts", CastCount.ToString(CultureInfo.InvariantCulture));
+            Line(sb, "version", Version.ToString(CultureInfo.InvariantCulture));
+            Line(sb, "bought", Join(Bought));
+            Line(sb, "talents", Join(Talents));
+            Line(sb, "quests", Join(Quests));
             return sb.ToString();
         }
 
@@ -522,6 +506,10 @@ namespace Wizardry
                     case "colour": Colour = Empty(v); break;
                     case "horcrux": Horcrux = Empty(v); break;
                     case "casts": CastCount = Int(v); break;
+                    case "version": Version = Int(v); break;
+                    case "bought": Fill(Bought, v); break;
+                    case "talents": Fill(Talents, v); break;
+                    case "quests": Fill(Quests, v); break;
                 }
             }
         }

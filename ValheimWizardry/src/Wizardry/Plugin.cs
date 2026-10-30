@@ -16,7 +16,7 @@ namespace Wizardry
     internal sealed class Plugin : BaseUnityPlugin
     {
         public const string Guid = "com.oulassevich.wizardry";
-        public const string Version = "1.0.1";
+        public const string Version = "2.0.0";
 
         public static ManualLogSource Log;
         public static Skills.SkillType SkillType;

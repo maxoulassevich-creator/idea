@@ -1,8 +1,8 @@
 {
   "name": "Wizardry",
-  "version_number": "1.0.1",
+  "version_number": "2.0.0",
   "website_url": "https://github.com/maxoulassevich-creator/idea",
-  "description": "Harry Potter magic for Valheim 1.0.21: wands, the Codex table, a PoE-style Tree of Charms and 330+ castable spells.",
+  "description": "Harry Potter magic for Valheim: wands, the Codex, a guided wizard's path, 330+ spells, a talent constellation and Dvergr-grade spell effects.",
   "dependencies": [
     "denikson-BepInExPack_Valheim-5.4.2360",
     "ValheimModding-Jotunn-2.30.2"

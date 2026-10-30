@@ -88,6 +88,20 @@ namespace Wizardry
             Fx.FadeOut(m_trail, c);
             m_trail.gameObject.SetActive(true);
             m_trail.Play();
+            // a ribbon of light behind the bolt
+            var tr = gameObject.AddComponent<TrailRenderer>();
+            tr.time = 0.22f;
+            tr.minVertexDistance = 0.05f;
+            tr.widthMultiplier = 0.16f;
+            tr.widthCurve = AnimationCurve.Linear(0f, 1f, 1f, 0f);
+            tr.sharedMaterial = Fx.Mat(Fx.Streak(), true);
+            var g = new Gradient();
+            g.SetKeys(new[] { new GradientColorKey(Color.Lerp(c, Color.white, 0.4f), 0f), new GradientColorKey(c, 1f) },
+                new[] { new GradientAlphaKey(0.9f, 0f), new GradientAlphaKey(0f, 1f) });
+            tr.colorGradient = g;
+            tr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            tr.receiveShadows = false;
+            tr.numCapVertices = 2;
             var core = Fx.NewParticles(transform, transform.position, Fx.Dot());
             core.transform.localPosition = Vector3.zero;
             var cm = core.main;

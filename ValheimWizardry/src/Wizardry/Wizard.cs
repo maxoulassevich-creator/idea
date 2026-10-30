@@ -56,6 +56,15 @@ namespace Wizardry
             }
 
             try { Casting.Update(p, State); } catch (Exception e) { Plugin.Report("Casting", e); }
+            try { Quests.Update(p, State); } catch (Exception e) { Plugin.Report("Path", e); }
+
+            // K also works from the crafting window at the Codex: it closes the window and opens the grimoire
+            if (InventoryGui.IsVisible() && !Grimoire.Open && ZInput.GetKeyDown(ModConfig.GrimoireKey.Value, false) &&
+                !(Chat.instance != null && Chat.instance.HasFocus()) && !TextInput.IsVisible())
+            {
+                InventoryGui.instance.Hide();
+                Grimoire.Toggle();
+            }
         }
 
         /// <summary>The Universalist notable: +4% damage per school in the bar.</summary>

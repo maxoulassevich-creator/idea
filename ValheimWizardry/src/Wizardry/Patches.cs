@@ -549,6 +549,7 @@ namespace Wizardry
         }
 
         /// <summary>Felix Felicis and the Collector's nodes: a creature the wizard fought sometimes drops one more thing.</summary>
+        [HarmonyBefore("randyknapp.mods.epicloot")]
         [HarmonyPatch(typeof(CharacterDrop), nameof(CharacterDrop.GenerateDropList))]
         private static class Luck
         {
@@ -565,8 +566,15 @@ namespace Wizardry
                 float chance = w.Stats.Get(Stat.loot) + Buffs.Value(me, "loot");
                 if (chance > 0f && Random.value * 100f < chance)
                 {
-                    var pick = __result[Random.Range(0, __result.Count)];
-                    __result.Add(new KeyValuePair<GameObject, int>(pick.Key, Mathf.Max(1, pick.Value)));
+                    // only plain materials and trophies: never a weapon or armour, which Epic Loot may turn magic
+                    var plain = __result.FindAll(kv => kv.Key != null && kv.Key.GetComponent<ItemDrop>() != null &&
+                        (kv.Key.GetComponent<ItemDrop>().m_itemData.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Material ||
+                         kv.Key.GetComponent<ItemDrop>().m_itemData.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Trophy));
+                    if (plain.Count > 0)
+                    {
+                        var pick = plain[Random.Range(0, plain.Count)];
+                        __result.Add(new KeyValuePair<GameObject, int>(pick.Key, Mathf.Max(1, pick.Value)));
+                    }
                 }
             }
         }

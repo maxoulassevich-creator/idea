@@ -14,7 +14,7 @@ namespace Wizardry
             SkillGainMultiplier, PvpDamage, PvpControl, DarknessGain, EffectsQuality, WandEitrMultiplier, EitrRegen;
 
         public static ConfigEntry<bool> UnforgivablesPvp, TerrainSpells, WeatherSpells, RaidBlock, PortkeyMetal,
-            ChestExtension, Blood, Animations, ScreenEffects, ShowIncantation, PossessionSpawns, FriendlyFire;
+            ChestExtension, Blood, Animations, ScreenEffects, ShowIncantation, PossessionSpawns, FriendlyFire, HuginTips, ShowTracker, VanillaEffects;
 
         public static ConfigEntry<KeyCode> SelectModifier, GrandKey, GrimoireKey, NextSpellKey, PrevSpellKey;
 
@@ -76,8 +76,14 @@ namespace Wizardry
                 "Hold it and press 1-8 (or turn the wheel) to choose the spell in the bar.");
             NextSpellKey = cfg.Bind("Keys", "NextSpell", KeyCode.None, "Optional key: next spell in the bar.");
             PrevSpellKey = cfg.Bind("Keys", "PreviousSpell", KeyCode.None, "Optional key: previous spell in the bar.");
-            GrandKey = cfg.Bind("Keys", "GrandSpell", KeyCode.G, "Cast the grand spell when Focus is full.");
-            GrimoireKey = cfg.Bind("Keys", "Grimoire", KeyCode.K, "Open the grimoire (tree, spells, specialisation, bestiary).");
+            // 2.0: G is the game's radial menu and Epic Loot's first ability key, so the grand spell moved to Z (a new entry, so
+            // that old configs pick up the new default)
+            GrandKey = cfg.Bind("Keys", "GrandSpellKey", KeyCode.Z, "Cast the grand spell when Focus is full.");
+            GrimoireKey = cfg.Bind("Keys", "Grimoire", KeyCode.K, "Open the grimoire: the wizard's path, spells and talents.");
+
+            HuginTips = cfg.Bind("Interface", "HuginTips", true, "Hugin the raven explains the important steps of the wizard's path.");
+            ShowTracker = cfg.Bind("Interface", "ShowPathTracker", true, "Show the current step of the wizard's path on the screen.");
+            VanillaEffects = cfg.Bind("Visuals", "UseGameEffects", true, "Spells also use the game's own magic effects (Dvergr staffs, lightning, frost).");
         }
     }
 }

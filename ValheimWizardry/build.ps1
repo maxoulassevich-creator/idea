@@ -2,7 +2,7 @@
 # Needs the .NET SDK 8+ (https://dotnet.microsoft.com/download). Run: powershell -ExecutionPolicy Bypass -File build.ps1
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
-$Version = "1.0.1"
+$Version = "2.0.0"
 $Pkgs = "libs\pkgs"; $Refs = "libs\refs"
 New-Item -ItemType Directory -Force -Path $Pkgs, $Refs, "dist" | Out-Null
 

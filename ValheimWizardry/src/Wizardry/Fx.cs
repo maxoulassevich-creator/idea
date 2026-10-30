@@ -91,7 +91,15 @@ namespace Wizardry
             Color c = def != null ? SpellColor(def) : Color.white;
             switch (kind)
             {
-                case FxKind.Cast: CastFlash(pos, c, def); break;
+                case FxKind.Cast:
+                    CastFlash(pos, c, def);
+                    GameFx.Cast(pos, dir, def);
+                    if (def != null && (def.IsGrand || def.IsRitual || def.Arch == "aoe" || def.Arch == "summ" || def.Arch == "heal" || def.Arch == "buff"))
+                    {
+                        MagicCircle(pos, c, def.IsGrand || def.IsRitual ? 3.2f : 2f, def.IsGrand || def.IsRitual ? 2.2f : 1.2f);
+                    }
+
+                    break;
                 case FxKind.Bolt:
                     if (!mine)
                     {
@@ -101,27 +109,34 @@ namespace Wizardry
                     break;
                 case FxKind.Beam: Beam(pos, pos + dir, c, 0.12f, Mathf.Max(0.15f, value)); break;
                 case FxKind.Ray: Beam(pos, pos + dir, c, 0.08f, 0.25f); Burst(pos + dir, 0.8f, c, 0.5f); break;
-                case FxKind.Hit: Burst(pos, value > 0f ? 1.4f : 0.8f, c, value > 0f ? 1.6f : 1f); break;
-                case FxKind.Burst: Burst(pos, Mathf.Max(1f, value), c, 1.5f); Ring(pos, Mathf.Max(1f, value), c, 0.6f); Shake(pos, value); break;
+                case FxKind.Hit: Burst(pos, value > 0f ? 1.4f : 0.8f, c, value > 0f ? 1.6f : 1f); GameFx.Hit(pos, def, false); break;
+                case FxKind.Burst:
+                    Burst(pos, Mathf.Max(1f, value), c, 1.5f);
+                    Ring(pos, Mathf.Max(1f, value), c, 0.6f);
+                    Shake(pos, value);
+                    GameFx.Hit(pos, def, value >= 3f);
+                    break;
                 case FxKind.Cone: Cone(pos, dir, Mathf.Max(2f, value), c); break;
                 case FxKind.Status: Status(target, spell, extra, value); break;
-                case FxKind.Heal: Rising(pos, 1f, new Color(0.55f, 1f, 0.7f, 1f), 1.4f, 60); Sound(pos, "chime", 0.5f); break;
-                case FxKind.Buff: Rising(pos, 0.8f, c, 1.2f, 40); Sound(pos, "chime", 0.35f); break;
+                case FxKind.Heal: Rising(pos, 1f, new Color(0.55f, 1f, 0.7f, 1f), 1.4f, 60); Sound(pos, "chime", 0.5f); GameFx.Heal(pos); break;
+                case FxKind.Buff: Rising(pos, 0.8f, c, 1.2f, 40); Sound(pos, "chime", 0.35f); GameFx.Buff(pos, def); break;
                 case FxKind.Summon:
                     Burst(pos, 1.5f, c, 1.2f);
                     Ring(pos, 2f, c, 0.8f);
                     Sound(pos, "whoosh", 0.6f);
+                    GameFx.Summon(pos);
+                    MagicCircle(pos, c, 2.4f, 1.6f);
                     if (!string.IsNullOrEmpty(extra))
                     {
                         Summons.Show(pos, dir, extra, value, target);
                     }
 
                     break;
-                case FxKind.Blink: Smoke(pos, new Color(0.08f, 0.08f, 0.1f, 0.8f)); Sound(pos, "crack", 0.8f); break;
+                case FxKind.Blink: Smoke(pos, new Color(0.08f, 0.08f, 0.1f, 0.8f)); Sound(pos, "crack", 0.8f); GameFx.Blink(pos); break;
                 case FxKind.Text: Text(pos, extra); break;
                 case FxKind.Flare: Flare(pos, extra); break;
                 case FxKind.DarkMark: DarkMark(pos, value); break;
-                case FxKind.Ceremony: Ceremony(pos, extra); break;
+                case FxKind.Ceremony: Ceremony(pos, extra); GameFx.Ceremony(pos); MagicCircle(pos, Ui.Gold, 3.5f, 2.5f); break;
                 case FxKind.Weather: Weather.Apply(extra, value, pos); break;
                 case FxKind.Poly: Polymorph.Show(target, extra, value); break;
             }
@@ -198,6 +213,60 @@ namespace Wizardry
                     default: Sound(pos, s.Arch == "heal" || s.Arch == "buff" ? "chime" : "zap", 0.45f); break;
                 }
             }
+        }
+
+        /// <summary>A glowing rune circle on the ground under the caster that turns and fades.</summary>
+        public static void MagicCircle(Vector3 pos, Color c, float size, float life)
+        {
+            var tex = Meshes.Texture("glyph_ritual.png");
+            if (tex == null)
+            {
+                return;
+            }
+
+            var ground = pos;
+            RaycastHit hit;
+            if (Physics.Raycast(pos + Vector3.up * 0.3f, Vector3.down, out hit, 4f, LayerMask.GetMask("Default", "static_solid", "Default_small", "piece", "terrain"),
+                    QueryTriggerInteraction.Ignore))
+            {
+                ground = hit.point;
+            }
+
+            ground += Vector3.up * 0.05f;
+            var root = Root("WZ_Circle", ground, life + 0.3f);
+            foreach (float k in new[] { 1f, 0.62f })
+            {
+                var ps = NewParticles(root.transform, ground, tex);
+                var r = ps.GetComponent<ParticleSystemRenderer>();
+                r.renderMode = ParticleSystemRenderMode.HorizontalBillboard;
+                r.alignment = ParticleSystemRenderSpace.World;
+                var main = ps.main;
+                main.loop = false;
+                main.duration = life;
+                main.startLifetime = life;
+                main.startSpeed = 0f;
+                main.startSize = size * k;
+                main.startRotation = UnityEngine.Random.value * Mathf.PI * 2f;
+                main.startColor = c;
+                main.maxParticles = 1;
+                main.simulationSpace = ParticleSystemSimulationSpace.World;
+                var sh = ps.shape;
+                sh.enabled = false;
+                var em = ps.emission;
+                em.rateOverTime = 0f;
+                em.SetBursts(new[] { new ParticleSystem.Burst(0f, 1) });
+                var rot = ps.rotationOverLifetime;
+                rot.enabled = true;
+                rot.z = (k < 1f ? -1f : 1f) * 50f * Mathf.Deg2Rad;
+                var sol = ps.sizeOverLifetime;
+                sol.enabled = true;
+                sol.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0.4f), new Keyframe(0.18f, 1f), new Keyframe(1f, 1.06f)));
+                FadeOut(ps, c);
+                ps.gameObject.SetActive(true);
+                ps.Play();
+            }
+
+            Light(root.transform, ground + Vector3.up * 0.4f, c, size * 1.5f, 1.4f, life * 0.8f);
         }
 
         public static void Burst(Vector3 pos, float radius, Color c, float power)
@@ -541,11 +610,14 @@ namespace Wizardry
             return lr;
         }
 
+        private static Material s_vanillaAdd, s_vanillaBlend;
+        private static bool s_searched;
+
         private static Shader FindShader(bool additive)
         {
             var names = additive
-                ? new[] { "Legacy Shaders/Particles/Additive", "Particles/Additive", "Sprites/Default" }
-                : new[] { "Sprites/Default", "Legacy Shaders/Particles/Alpha Blended", "Particles/Alpha Blended" };
+                ? new[] { "Legacy Shaders/Particles/Additive", "Particles/Additive", "Mobile/Particles/Additive" }
+                : new[] { "Legacy Shaders/Particles/Alpha Blended", "Particles/Alpha Blended", "Mobile/Particles/Alpha Blended" };
             foreach (string n in names)
             {
                 var s = Shader.Find(n);
@@ -558,6 +630,48 @@ namespace Wizardry
             return null;
         }
 
+        /// <summary>The particle materials of the game's own magic effects: their shaders surely exist in the build.</summary>
+        private static void SearchVanilla()
+        {
+            if (s_searched)
+            {
+                return;
+            }
+
+            s_searched = true;
+            foreach (string prefab in new[] { "fx_DvergerMage_Support_start", "vfx_HealthUpgrade", "fx_guardstone_activate", "vfx_FireAddFuel",
+                         "vfx_Potion_eitr_minor", "fx_DvergerMage_Ice_hit" })
+            {
+                var go = Jotunn.Managers.PrefabManager.Instance.GetPrefab(prefab);
+                if (go == null)
+                {
+                    continue;
+                }
+
+                foreach (var r in go.GetComponentsInChildren<ParticleSystemRenderer>(true))
+                {
+                    var m = r.sharedMaterial;
+                    if (m == null || m.shader == null)
+                    {
+                        continue;
+                    }
+
+                    string n = m.shader.name.ToLowerInvariant();
+                    bool add = n.Contains("add") || m.GetTag("RenderType", false) == "Transparent" && n.Contains("particle") && m.HasProperty("_TintColor");
+                    if (add && s_vanillaAdd == null) s_vanillaAdd = m;
+                    else if (!add && s_vanillaBlend == null && n.Contains("particle")) s_vanillaBlend = m;
+                }
+
+                if (s_vanillaAdd != null && s_vanillaBlend != null)
+                {
+                    break;
+                }
+            }
+
+            Plugin.Log.LogInfo("Particle materials: " + (s_vanillaAdd != null ? s_vanillaAdd.shader.name : "-") + " / " +
+                               (s_vanillaBlend != null ? s_vanillaBlend.shader.name : "-"));
+        }
+
         public static Material Mat(Texture2D tex, bool additive = true)
         {
             Material m;
@@ -568,10 +682,31 @@ namespace Wizardry
             }
 
             var shader = FindShader(additive);
-            m = new Material(shader != null ? shader : Shader.Find("Sprites/Default")) { name = "WZ_" + key, mainTexture = tex };
+            if (shader != null)
+            {
+                m = new Material(shader);
+            }
+            else
+            {
+                SearchVanilla();
+                var src = additive ? s_vanillaAdd ?? s_vanillaBlend : s_vanillaBlend ?? s_vanillaAdd;
+                m = src != null ? new Material(src) : new Material(Shader.Find("Sprites/Default"));
+                foreach (string prop in m.GetTexturePropertyNames())
+                {
+                    if (prop != "_MainTex") m.SetTexture(prop, null);
+                }
+            }
+
+            m.name = "WZ_" + key;
+            m.mainTexture = tex;
             if (m.HasProperty("_TintColor"))
             {
                 m.SetColor("_TintColor", new Color(0.5f, 0.5f, 0.5f, 0.5f));
+            }
+
+            if (m.HasProperty("_Color"))
+            {
+                m.SetColor("_Color", Color.white);
             }
 
             m.hideFlags = HideFlags.DontUnloadUnusedAsset;
@@ -598,7 +733,7 @@ namespace Wizardry
             }));
         }
 
-        private static Texture2D Streak()
+        public static Texture2D Streak()
         {
             return s_streak ?? (s_streak = Procedural("streak", 4, 32, (u, v) => Mathf.Pow(Mathf.Clamp01(1f - Mathf.Abs(v - 0.5f) * 2f), 1.5f)));
         }
@@ -713,6 +848,8 @@ namespace Wizardry
                 case "zap": data = Synth(0.35f, (t, r) => Noise(r) * Mathf.Exp(-t * 14f) * 0.7f + Mathf.Sin(t * 2400f * (1f - t)) * Mathf.Exp(-t * 9f) * 0.3f); break;
                 case "pop": data = Synth(0.3f, (t, r) => Mathf.Sin(t * 900f * (1f - t * 2f)) * Mathf.Exp(-t * 18f) + Noise(r) * Mathf.Exp(-t * 40f) * 0.4f); break;
                 case "boom": data = Synth(1.6f, (t, r) => Lowpass(r, 0.03f) * Mathf.Exp(-t * 2.5f) * 1.6f + Mathf.Sin(t * 260f * (1f - t * 0.3f)) * Mathf.Exp(-t * 5f) * 0.6f); break;
+                case "click": data = Synth(0.07f, (t, r) => Mathf.Sin(t * 2f * Mathf.PI * 1700f) * Mathf.Exp(-t * 70f) * 0.5f); break;
+                case "page": data = Synth(0.32f, (t, r) => Lowpass(r, 0.25f) * Mathf.Sin(Mathf.Clamp01(t / 0.32f) * Mathf.PI) * 0.7f); break;
                 case "whoosh": data = Synth(0.8f, (t, r) => Lowpass(r, 0.08f) * Mathf.Sin(t / 0.8f * Mathf.PI) * 1.2f); break;
                 case "crack": data = Synth(0.5f, (t, r) => (t < 0.03f ? Noise(r) : Lowpass(r, 0.05f) * Mathf.Exp(-t * 8f)) * 1.2f); break;
                 case "chime": data = Synth(1.4f, (t, r) => (Mathf.Sin(t * 2f * Mathf.PI * 880f) + 0.6f * Mathf.Sin(t * 2f * Mathf.PI * 1320f) + 0.3f * Mathf.Sin(t * 2f * Mathf.PI * 1760f)) * Mathf.Exp(-t * 3.5f) * 0.35f); break;

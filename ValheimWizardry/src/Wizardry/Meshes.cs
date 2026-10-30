@@ -113,7 +113,14 @@ namespace Wizardry
             return t;
         }
 
-        /// <summary>A copy of a plain opaque vanilla material (so the game's own lit shader is used) with our textures.</summary>
+        private static bool s_shaderLogged;
+
+        /// <summary>
+        ///     A lit opaque material with our textures: a fresh Standard material when the game has the shader, otherwise a
+        ///     copy of a vanilla one. Every texture slot we do not fill is emptied and its keyword turned off: an empty
+        ///     metallic map with _METALLICGLOSSMAP on reads as white, which makes a chrome mirror that blooms into a white
+        ///     blob (the 1.0 Codex).
+        /// </summary>
         public static Material Material(string albedo, string normal, string emission, Color tint, Color glow)
         {
             Material template = null;
@@ -146,16 +153,39 @@ namespace Wizardry
                 }
             }
 
-            var mat = template != null ? new Material(template) : new Material(Shader.Find("Standard"));
+            var standard = Shader.Find("Standard");
+            Material mat;
+            if (standard != null)
+            {
+                mat = new Material(standard);
+            }
+            else if (template != null)
+            {
+                mat = new Material(template);
+            }
+            else
+            {
+                mat = new Material(Shader.Find("Sprites/Default"));
+            }
+
+            if (!s_shaderLogged)
+            {
+                s_shaderLogged = true;
+                Plugin.Log.LogInfo("Model shader: " + (mat.shader != null ? mat.shader.name : "none"));
+            }
+
             foreach (string prop in mat.GetTexturePropertyNames())
             {
-                string p = prop.ToLowerInvariant();
-                if (prop != "_MainTex" && (p.Contains("emission") || p.Contains("metal") || p.Contains("gloss") || p.Contains("spec") ||
-                                           p.Contains("occlusion") || p.Contains("detail") || p.Contains("rough") || p.Contains("mask") ||
-                                           p.Contains("bump") || p.Contains("normal")))
+                if (prop != "_MainTex")
                 {
                     mat.SetTexture(prop, null);
                 }
+            }
+
+            foreach (string kw in new[] { "_METALLICGLOSSMAP", "_SPECGLOSSMAP", "_DETAIL_MULX2", "_PARALLAXMAP", "_NORMALMAP", "_EMISSION",
+                         "_ALPHATEST_ON", "_ALPHABLEND_ON", "_ALPHAPREMULTIPLY_ON", "_SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A" })
+            {
+                mat.DisableKeyword(kw);
             }
 
             var a = Texture(albedo);
@@ -186,15 +216,21 @@ namespace Wizardry
                     mat.SetTexture("_EmissionMap", em);
                     mat.SetColor("_EmissionColor", glow);
                     mat.EnableKeyword("_EMISSION");
+                    mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
                 }
                 else
                 {
-                    mat.SetColor("_EmissionColor", glow.maxColorComponent > 0f ? glow * 0.2f : Color.black);
+                    mat.SetColor("_EmissionColor", Color.black);
                 }
             }
 
             if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", 0f);
-            if (mat.HasProperty("_Glossiness")) mat.SetFloat("_Glossiness", 0.3f);
+            if (mat.HasProperty("_Glossiness")) mat.SetFloat("_Glossiness", 0.25f);
+            if (mat.HasProperty("_GlossMapScale")) mat.SetFloat("_GlossMapScale", 0.25f);
+            if (mat.HasProperty("_SpecularHighlights")) mat.SetFloat("_SpecularHighlights", 1f);
+            if (mat.HasProperty("_GlossyReflections")) mat.SetFloat("_GlossyReflections", 0f);
+            mat.EnableKeyword("_GLOSSYREFLECTIONS_OFF");
+            mat.renderQueue = -1;
             mat.name = "WZ_" + albedo;
             return mat;
         }
