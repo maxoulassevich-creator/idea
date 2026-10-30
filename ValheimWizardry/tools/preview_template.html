@@ -1,0 +1,499 @@
+<title>Древо Чар</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+SC:wght@500;700&family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap">
+<style>
+/* Layout: one-screen planner — a control bar on top, the tree canvas left, a parchment-ink detail panel right (stacks under the canvas on phones).
+   One deliberate dark look: the ink of the Codex of Eternal Shadows, its green glow as the accent. */
+:root {
+  --ink: #0b100e;          /* page ground */
+  --ink-2: #121a17;        /* panels */
+  --ink-3: #1b2622;        /* raised controls */
+  --line: #2a3a34;         /* hairlines and idle edges */
+  --text: #e6e2d3;         /* parchment-white body text */
+  --muted: #9aa69f;        /* secondary text */
+  --glow: #5ef08d;         /* codex green: allocation, focus */
+  --gold: #d8b866;         /* candle gold: keystones, numbers */
+  --warn: #f2a65a;
+  --font-display: "Cormorant SC", "Cormorant", Georgia, serif;
+  --font-body: "Alegreya Sans", "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--ink); color: var(--text); font-family: var(--font-body); font-size: 15px; line-height: 1.45;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px;
+  padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  border-bottom: 1px solid var(--line); background: var(--ink-2);
+}
+.brand { display: flex; flex-direction: column; gap: 0; margin-right: 6px; }
+.brand h1 { font-family: var(--font-display); font-weight: 700; font-size: 1.55rem; letter-spacing: .04em; margin: 0; line-height: 1; text-wrap: balance; }
+.brand span { color: var(--muted); font-size: .8rem; letter-spacing: .02em; }
+.group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.group > label { color: var(--muted); font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; }
+.houses button {
+  font: 500 .9rem var(--font-body); color: var(--text); background: var(--ink-3); border: 1px solid var(--line);
+  border-radius: 999px; padding: 4px 11px 4px 9px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+}
+.houses button i { width: 10px; height: 10px; border-radius: 50%; background: var(--c); display: inline-block; }
+.houses button[aria-pressed="true"] { border-color: var(--c); box-shadow: inset 0 0 0 1px var(--c); }
+select, input[type="search"], .btn {
+  font: 400 .9rem var(--font-body); color: var(--text); background: var(--ink-3); border: 1px solid var(--line);
+  border-radius: 6px; padding: 5px 9px;
+}
+input[type="search"] { width: 13rem; max-width: 100%; }
+.btn { cursor: pointer; }
+.btn:hover, .houses button:hover { border-color: var(--muted); }
+:focus-visible { outline: 2px solid var(--glow); outline-offset: 2px; }
+.points { font-variant-numeric: tabular-nums; font-size: .95rem; }
+.points b { color: var(--glow); font-weight: 700; font-size: 1.15rem; }
+.points.over b { color: var(--warn); }
+.tabs { display: flex; gap: 2px; margin-left: auto; }
+.tabs button { font: 600 .95rem var(--font-display); letter-spacing: .05em; background: none; color: var(--muted); border: 0; border-bottom: 2px solid transparent; padding: 4px 8px; cursor: pointer; }
+.tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--glow); }
+
+main { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 360px; min-height: 0; }
+.stage { position: relative; min-width: 0; min-height: 0; overflow: hidden; background: radial-gradient(circle at 50% 50%, var(--ink-2) 0%, var(--ink) 62%); touch-action: none; }
+svg#tree { width: 100%; height: 100%; display: block; cursor: grab; user-select: none; }
+svg#tree.dragging { cursor: grabbing; }
+.zoom { position: absolute; right: 12px; bottom: 12px; display: flex; flex-direction: column; gap: 4px; }
+.zoom button { width: 34px; height: 34px; font-size: 1.1rem; background: var(--ink-3); color: var(--text); border: 1px solid var(--line); border-radius: 6px; cursor: pointer; }
+.hint { position: absolute; left: 12px; bottom: 12px; color: var(--muted); font-size: .8rem; max-width: 22rem; pointer-events: none; }
+.toast { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); background: var(--ink-3); border: 1px solid var(--warn); color: var(--text); padding: 6px 12px; border-radius: 6px; font-size: .9rem; }
+
+aside { border-left: 1px solid var(--line); background: var(--ink-2); overflow-y: auto; padding-block: 16px; padding-inline: 18px; display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.kind { color: var(--muted); font-size: .75rem; text-transform: uppercase; letter-spacing: .1em; }
+.detail h2 { font-family: var(--font-display); font-weight: 700; font-size: 1.5rem; margin: 2px 0 2px; line-height: 1.1; text-wrap: balance; }
+.detail .inc { font-style: italic; color: var(--gold); }
+.detail .req { font-size: .85rem; color: var(--muted); margin-top: 4px; }
+.detail p { margin: 8px 0 0; }
+.detail dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; margin: 10px 0 0; font-size: .9rem; }
+.detail dt { color: var(--muted); }
+.detail dd { margin: 0; font-variant-numeric: tabular-nums; }
+.opts { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.opts label { display: flex; gap: 8px; align-items: flex-start; font-size: .92rem; cursor: pointer; }
+.opts input { margin-top: 3px; accent-color: var(--glow); }
+.swatch { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+.summary h3 { font-family: var(--font-display); font-size: 1.1rem; margin: 0 0 6px; letter-spacing: .03em; }
+.summary ul { margin: 0; padding-left: 1.1rem; font-size: .9rem; }
+.summary li { margin: 2px 0; }
+.summary .counts { color: var(--muted); font-size: .88rem; margin-bottom: 8px; font-variant-numeric: tabular-nums; }
+.legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 10px; font-size: .82rem; color: var(--muted); }
+
+/* tree marks */
+.e { stroke: var(--line); stroke-width: 3; }
+.e.on { stroke: var(--glow); stroke-width: 5; }
+.e.path { stroke: var(--text); stroke-width: 4; stroke-dasharray: 8 6; }
+.n { cursor: pointer; }
+.n .body { fill: var(--ink-2); stroke-width: 3; }
+.n.avail .body { stroke-width: 5; }
+.n.on .body { fill: var(--c); filter: url(#glow); }
+.n.locked { opacity: .32; }
+.n.path .body { stroke: var(--text); stroke-width: 5; }
+.n.match .ring { stroke: var(--gold); stroke-width: 4; fill: none; animation: pulse 1.4s ease-in-out infinite; }
+.n.sel .body { stroke: #fff; stroke-width: 6; }
+@keyframes pulse { 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .n.match .ring { animation: none; } }
+.lbl { fill: var(--muted); font-family: var(--font-display); font-weight: 700; font-size: 38px; letter-spacing: 2px; pointer-events: none; }
+.lbl.house { font-size: 30px; fill: var(--text); }
+
+/* specializations view */
+.specs { position: absolute; inset: 0; overflow-y: auto; touch-action: pan-y; padding-block: 16px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; align-content: start; }
+.spec { background: var(--ink-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.spec.chosen { border-color: var(--glow); }
+.spec header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.spec h3 { font-family: var(--font-display); font-size: 1.2rem; margin: 0; }
+.spec small { color: var(--muted); }
+.spec svg { width: 100%; height: auto; }
+
+@media (max-width: 860px) {
+  body { overflow: auto; }
+  main { grid-template-columns: minmax(0, 1fr); }
+  .stage { height: 68vh; min-height: 380px; }
+  aside { border-left: 0; border-top: 1px solid var(--line); overflow: visible; }
+  .tabs { margin-left: 0; }
+}
+</style>
+
+<div class="bar">
+  <div class="brand"><h1>Древо Чар</h1><span>Волшебство · Valheim 1.0.21</span></div>
+  <div class="group houses" role="group" aria-label="Факультет" id="houses"></div>
+  <div class="group">
+    <label for="year">Курс</label>
+    <select id="year"></select>
+  </div>
+  <div class="group">
+    <label for="q">Поиск</label>
+    <input type="search" id="q" placeholder="огонь, Патронус, щит…" autocomplete="off">
+  </div>
+  <div class="points" id="points"></div>
+  <button class="btn" id="reset" type="button">Сбросить</button>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tab-tree" aria-selected="true" type="button">Древо</button>
+    <button role="tab" id="tab-specs" aria-selected="false" type="button">Призвания</button>
+  </div>
+</div>
+
+<main>
+  <div class="stage" id="stage">
+    <svg id="tree" aria-label="Древо Чар" role="img">
+      <defs>
+        <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+          <feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <g id="world"><g id="labels"></g><g id="edges"></g><g id="nodes"></g></g>
+    </svg>
+    <div class="zoom"><button type="button" id="zin" aria-label="Приблизить">+</button><button type="button" id="zout" aria-label="Отдалить">−</button><button type="button" id="zfit" aria-label="Показать всё">◎</button></div>
+    <div class="hint" id="hint">Нажмите на узел — путь до него возьмётся целиком, как в Path of Exile. Повторное нажатие снимает узел. Колесо или щипок — масштаб, перетаскивание — сдвиг.</div>
+    <div class="toast" id="toast" hidden></div>
+    <div class="specs" id="specs" hidden></div>
+  </div>
+  <aside>
+    <section class="detail" id="detail" aria-live="polite"></section>
+    <section class="summary" id="summary"></section>
+    <section>
+      <div class="kind" style="margin-bottom:6px">Школы</div>
+      <div class="legend" id="legend"></div>
+    </section>
+  </aside>
+</main>
+
+<script>
+const D = /*DATA*/null;
+const S = /*SPELLS*/null;
+
+const YEARS = [null, "1 курс", "2 курс", "3 курс", "4 курс", "5 курс — СОВ", "6 курс", "7 курс — ЖАБА", "Мастер", "Орден Мерлина"];
+const BOSS = [null, "старт", "Эйктюр", "Древний", "Костяная масса", "Модер", "Яглут", "Королева", "Фейдер", "Калл Фимбульбрингер"];
+const BUDGET = [0, 14, 34, 51, 60, 68, 82, 96, 110, 128];      // очков древа к курсу (см. 01_PROGRESSION §13)
+const SPEC_BUDGET = [0, 0, 0, 0, 0, 2, 4, 6, 8, 8];
+const KIND = { small: "Малый узел", notable: "Значимый узел", spell: "Узел заклинания", mastery: "Мастерство", socket: "Гнездо Омута", keystone: "Непреложный обет", house: "Факультет", relic: "Реликвия основателя" };
+const R = { small: 8, notable: 15, spell: 14, mastery: 17, socket: 11, keystone: 24, house: 26, relic: 11 };
+const NEUTRAL = "#d8c9a0";
+
+const byId = new Map(D.nodes.map(n => [n.id, n]));
+const adj = new Map(D.nodes.map(n => [n.id, []]));
+D.edges.forEach(([a, b]) => { adj.get(a).push(b); adj.get(b).push(a); });
+const schoolOf = Object.fromEntries(D.schools.map(s => [s.code, s]));
+const houseOf = Object.fromEntries(D.houses.map(h => [h.id, h]));
+const colorOf = n => n.type === "house" ? houseOf[n.house].color : n.type === "relic" ? houseOf[n.house].color : (n.school ? schoolOf[n.school].color : NEUTRAL);
+
+const state = { house: "gryffindor", year: 9, alloc: new Set(), mastery: {}, sel: null, hover: null, q: "", spec: null, specAlloc: new Set(), view: "tree" };
+
+function load() {
+  try {
+    const s = JSON.parse(localStorage.getItem("wizardry-tree") || "null");
+    if (s && houseOf[s.house]) {
+      state.house = s.house; state.year = s.year || 9; state.mastery = s.mastery || {};
+      state.alloc = new Set((s.alloc || []).filter(id => byId.has(id)));
+      state.spec = s.spec || null; state.specAlloc = new Set(s.specAlloc || []);
+    }
+  } catch (e) { /* хранилище недоступно — начинаем с нуля */ }
+  state.alloc.add("house_" + state.house);
+}
+function save() {
+  try {
+    localStorage.setItem("wizardry-tree", JSON.stringify({ house: state.house, year: state.year, mastery: state.mastery,
+      alloc: [...state.alloc], spec: state.spec, specAlloc: [...state.specAlloc] }));
+  } catch (e) { /* без сохранения */ }
+}
+
+const yearOk = n => n.type !== "house" ? (n.year || 0) <= state.year : n.house === state.house;
+const used = () => [...state.alloc].filter(id => byId.get(id).type !== "house").length;
+
+/* кратчайший путь от взятых узлов до цели (чужие факультеты и закрытые курсом узлы не проходимы) */
+function pathTo(target) {
+  if (state.alloc.has(target)) return [];
+  const prev = new Map(); const q = [];
+  state.alloc.forEach(id => { prev.set(id, null); q.push(id); });
+  while (q.length) {
+    const x = q.shift();
+    if (x === target) break;
+    for (const y of adj.get(x)) {
+      if (prev.has(y)) continue;
+      const ny = byId.get(y);
+      if (!yearOk(ny)) continue;
+      prev.set(y, x); q.push(y);
+    }
+  }
+  if (!prev.has(target)) return null;
+  const out = []; let c = target;
+  while (c && !state.alloc.has(c)) { out.push(c); c = prev.get(c); }
+  return out.reverse();
+}
+function pruneDisconnected() {
+  const start = "house_" + state.house; const seen = new Set([start]); const q = [start];
+  while (q.length) { const x = q.shift(); for (const y of adj.get(x)) if (state.alloc.has(y) && !seen.has(y)) { seen.add(y); q.push(y); } }
+  state.alloc = seen;
+  Object.keys(state.mastery).forEach(k => { if (!seen.has(k)) delete state.mastery[k]; });
+}
+
+/* ---------------- отрисовка древа */
+const NS = "http://www.w3.org/2000/svg";
+const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
+const px = n => n.x * 100, py = n => n.y * -100;
+function poly(sides, r, rot = 0) {
+  const pts = []; for (let i = 0; i < sides; i++) { const a = rot + i * 2 * Math.PI / sides; pts.push((r * Math.cos(a)).toFixed(1) + "," + (r * Math.sin(a)).toFixed(1)); } return pts.join(" ");
+}
+const edgeEls = []; const nodeEls = new Map();
+function build() {
+  const gE = document.getElementById("edges"), gN = document.getElementById("nodes"), gL = document.getElementById("labels");
+  D.schools.forEach(s => {
+    const a = s.angle * Math.PI / 180, c = Math.cos(a);
+    const anchor = c > 0.3 ? "start" : c < -0.3 ? "end" : "middle", r = anchor === "middle" ? 1010 : 985;
+    const t = el("text", { class: "lbl", x: (r * Math.cos(a)).toFixed(0), y: (-r * Math.sin(a)).toFixed(0), "text-anchor": anchor, "dominant-baseline": "middle" }, gL);
+    t.style.fill = s.color; t.textContent = s.name;
+  });
+  D.edges.forEach(([a, b]) => { const A = byId.get(a), B = byId.get(b); edgeEls.push([el("line", { class: "e", x1: px(A), y1: py(A), x2: px(B), y2: py(B) }, gE), a, b]); });
+  D.nodes.forEach(n => {
+    const g = el("g", { class: "n", transform: `translate(${px(n).toFixed(1)},${py(n).toFixed(1)})`, tabindex: n.type === "small" ? -1 : 0, role: "button", "aria-label": n.name }, gN);
+    g.style.setProperty("--c", colorOf(n));
+    const r = R[n.type];
+    el("circle", { class: "ring", r: r + 9 }, g);
+    let b;
+    if (n.type === "spell") b = el("polygon", { points: poly(6, r, Math.PI / 6) }, g);
+    else if (n.type === "mastery") b = el("polygon", { points: poly(8, r, Math.PI / 8) }, g);
+    else if (n.type === "keystone") b = el("polygon", { points: poly(8, r, 0) }, g);
+    else if (n.type === "relic") b = el("polygon", { points: poly(4, r + 2, 0) }, g);
+    else b = el("circle", { r }, g);
+    b.setAttribute("class", "body"); b.setAttribute("stroke", colorOf(n));
+    if (n.type === "house") { const t = el("text", { class: "lbl house", y: 58, "text-anchor": "middle" }, g); t.textContent = n.name; }
+    g.addEventListener("pointerenter", () => { state.hover = n.id; paint(); showDetail(n.id); });
+    g.addEventListener("pointerleave", () => { if (state.hover === n.id) { state.hover = null; paint(); showDetail(state.sel); } });
+    g.addEventListener("click", ev => { if (moved) return; clickNode(n.id); });
+    g.addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); clickNode(n.id); } });
+    nodeEls.set(n.id, g);
+  });
+}
+function paint() {
+  const path = state.hover ? (pathTo(state.hover) || []) : [];
+  const pathSet = new Set(path);
+  const q = state.q.trim().toLowerCase();
+  nodeEls.forEach((g, id) => {
+    const n = byId.get(id); const on = state.alloc.has(id);
+    const avail = !on && yearOk(n) && adj.get(id).some(x => state.alloc.has(x));
+    const match = q.length > 1 && ((n.name + " " + (n.text || "") + " " + (n.options || []).join(" ")).toLowerCase().includes(q));
+    g.setAttribute("class", "n" + (on ? " on" : "") + (avail ? " avail" : "") + (!yearOk(n) ? " locked" : "") + (pathSet.has(id) ? " path" : "") + (match ? " match" : "") + (state.sel === id ? " sel" : ""));
+  });
+  edgeEls.forEach(([line, a, b]) => {
+    const on = state.alloc.has(a) && state.alloc.has(b);
+    const p = (pathSet.has(a) || state.alloc.has(a)) && (pathSet.has(b) || state.alloc.has(b)) && (pathSet.has(a) || pathSet.has(b));
+    line.setAttribute("class", "e" + (on ? " on" : p ? " path" : ""));
+  });
+  const u = used(), bud = BUDGET[state.year];
+  const pts = document.getElementById("points");
+  pts.className = "points" + (u > bud ? " over" : "");
+  pts.innerHTML = `Очки: <b>${u}</b> / ${bud}` + (path.length ? ` <span style="color:var(--muted)">(+${path.length})</span>` : "");
+  summary();
+}
+let toastTimer;
+function toast(msg) { const t = document.getElementById("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, 2600); }
+function clickNode(id) {
+  const n = byId.get(id);
+  state.sel = id;
+  if (n.type === "house") {
+    if (n.house !== state.house) { state.house = n.house; state.alloc = new Set(["house_" + n.house]); state.mastery = {}; syncHouses(); }
+  } else if (state.alloc.has(id)) {
+    state.alloc.delete(id); pruneDisconnected();
+  } else {
+    if (!yearOk(n)) toast(`Нужен ${YEARS[n.year]} (${BOSS[n.year]}).`);
+    else {
+      const p = pathTo(id);
+      if (!p) toast("Сюда нет пути от вашего факультета на этом курсе.");
+      else if (used() + p.length > BUDGET[state.year]) toast(`Не хватает очков: нужно ${p.length}, свободно ${BUDGET[state.year] - used()}.`);
+      else p.forEach(x => state.alloc.add(x));
+    }
+  }
+  save(); paint(); showDetail(id);
+}
+
+/* ---------------- панель */
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+function showDetail(id) {
+  const box = document.getElementById("detail");
+  if (!id) {
+    const h = houseOf[state.house];
+    box.innerHTML = `<div class="kind">Факультет</div><h2>${esc(h.ru)}</h2><p>${esc(h.motto)}. ${esc(h.start)}</p>
+      <p class="req">Наведите на узел, чтобы увидеть, что он даёт. Курс сверху ограничивает и кольца, и очки.</p>`;
+    return;
+  }
+  const n = byId.get(id);
+  const sch = n.school ? schoolOf[n.school] : null;
+  const where = n.hybrid ? n.hybrid.map(c => schoolOf[c].name).join(" — ") : sch ? sch.name : (n.type === "house" || n.type === "relic" ? "Большой зал" : "Большой зал");
+  let html = `<div class="kind">${KIND[n.type]}${n.hybrid ? " · гибрид" : ""}</div><h2>${esc(n.name)}</h2>`;
+  html += `<div class="req"><span class="swatch" style="background:${colorOf(n)}"></span>${esc(where)}${n.year ? " · " + YEARS[n.year] + " (" + BOSS[n.year] + ")" : ""}</div>`;
+  if (n.type === "spell") {
+    const s = S[n.spell];
+    if (s.incantation) html += `<div class="inc">${esc(s.incantation)}</div>`;
+    html += `<p>${esc(n.text)}</p>`;
+    if (n.house_free) html += `<p class="req">Факультет ${esc(n.house_free)} знает его с начала.</p>`;
+    const num = s.numbers || {};
+    html += "<dl>";
+    if (num.damage_r1) html += `<dt>Урон</dt><dd>${num.damage_r1} → ${num.damage_r10}${num.per ? " " + num.per : ""} (ранг 1 → 10)</dd>`;
+    if (num.heal_r1) html += `<dt>Лечение</dt><dd>${num.heal_r1} → ${num.heal_r10}</dd>`;
+    if (num.cost) html += `<dt>Цена</dt><dd>${esc(num.cost)}</dd>`;
+    if (num.cooldown) html += `<dt>Перезарядка</dt><dd>${esc(num.cooldown)}</dd>`;
+    ["r3", "r6", "r9"].forEach(k => { if (s.augments[k]) html += `<dt>Узор р${k[1]}</dt><dd>${esc(s.augments[k])}</dd>`; });
+    if (s.vfx) html += `<dt>Эффект</dt><dd>${esc(s.vfx)}</dd>`;
+    html += "</dl>";
+  } else if (n.type === "mastery") {
+    html += `<p>${state.alloc.has(id) ? "Выберите одну опцию; сменить можно в любой момент." : "Возьмите узел, чтобы выбрать опцию:"}</p><div class="opts">`;
+    n.options.forEach((o, i) => {
+      html += `<label><input type="radio" name="m-${id}" value="${i}" ${state.mastery[id] === i ? "checked" : ""} ${state.alloc.has(id) ? "" : "disabled"}>${esc(o)}</label>`;
+    });
+    html += "</div>";
+  } else {
+    html += `<p>${esc(n.text)}</p>`;
+  }
+  box.innerHTML = html;
+  box.querySelectorAll("input[type=radio]").forEach(r => r.addEventListener("change", () => { state.mastery[id] = +r.value; save(); summary(); }));
+}
+function summary() {
+  const ids = [...state.alloc].map(id => byId.get(id));
+  const c = t => ids.filter(n => n.type === t).length;
+  const list = (t, f = n => n.name) => ids.filter(n => n.type === t).map(f);
+  const keys = list("keystone"), spells = list("spell"), nots = list("notable");
+  const ms = ids.filter(n => n.type === "mastery").map(n => state.mastery[n.id] != null ? n.options[state.mastery[n.id]] : n.name + " (не выбрано)");
+  let html = `<h3>Ваша сборка</h3><div class="counts">${c("small")} малых · ${nots.length} значимых · ${spells.length} заклинаний · ${c("mastery")} мастерств · ${c("socket")} гнёзд</div>`;
+  if (keys.length) html += `<div class="kind">Обеты</div><ul>${keys.map(k => `<li>${esc(k)}</li>`).join("")}</ul>`;
+  if (spells.length) html += `<div class="kind" style="margin-top:8px">Заклинания</div><ul>${spells.map(k => `<li>${esc(k)}</li>`).join("")}</ul>`;
+  if (nots.length) html += `<div class="kind" style="margin-top:8px">Значимые узлы</div><ul>${nots.map(k => `<li>${esc(k)}</li>`).join("")}</ul>`;
+  if (ms.length) html += `<div class="kind" style="margin-top:8px">Мастерства</div><ul>${ms.map(k => `<li>${esc(k)}</li>`).join("")}</ul>`;
+  if (!keys.length && !spells.length && !nots.length) html += `<p class="req">Пока взят только старт факультета.</p>`;
+  document.getElementById("summary").innerHTML = html;
+}
+
+/* ---------------- пан и масштаб */
+const svg = document.getElementById("tree"), world = document.getElementById("world");
+const view = { x: 0, y: 0, k: 1 };
+function fit() {
+  const r = svg.getBoundingClientRect(); const size = Math.min(r.width, r.height) || 600;
+  view.k = size / 2500; view.x = r.width / 2; view.y = r.height / 2; apply();
+}
+function apply() { world.setAttribute("transform", `translate(${view.x.toFixed(1)},${view.y.toFixed(1)}) scale(${view.k.toFixed(4)})`); }
+function zoomAt(f, cx, cy) {
+  const k = Math.min(4, Math.max(0.12, view.k * f)); f = k / view.k;
+  view.x = cx - (cx - view.x) * f; view.y = cy - (cy - view.y) * f; view.k = k; apply();
+}
+svg.addEventListener("wheel", e => { e.preventDefault(); const r = svg.getBoundingClientRect(); zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top); }, { passive: false });
+const ptrs = new Map(); let moved = false, last = null, pinch = null;
+svg.addEventListener("pointerdown", e => { ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); moved = false; last = { x: e.clientX, y: e.clientY }; if (ptrs.size === 2) pinch = null; });
+window.addEventListener("pointermove", e => {
+  if (!ptrs.has(e.pointerId)) return;
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (ptrs.size === 2) {
+    const [a, b] = [...ptrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); const r = svg.getBoundingClientRect();
+    if (pinch) zoomAt(d / pinch, (a.x + b.x) / 2 - r.left, (a.y + b.y) / 2 - r.top);
+    pinch = d; moved = true; return;
+  }
+  const dx = e.clientX - last.x, dy = e.clientY - last.y;
+  if (!moved && Math.hypot(dx, dy) < 5) return;
+  if (!moved) { moved = true; svg.classList.add("dragging"); }
+  view.x += dx; view.y += dy; last = { x: e.clientX, y: e.clientY }; apply();
+});
+const up = e => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (!ptrs.size) { svg.classList.remove("dragging"); setTimeout(() => moved = false, 0); } };
+window.addEventListener("pointerup", up); window.addEventListener("pointercancel", up);
+document.getElementById("zin").onclick = () => { const r = svg.getBoundingClientRect(); zoomAt(1.3, r.width / 2, r.height / 2); };
+document.getElementById("zout").onclick = () => { const r = svg.getBoundingClientRect(); zoomAt(1 / 1.3, r.width / 2, r.height / 2); };
+document.getElementById("zfit").onclick = fit;
+window.addEventListener("resize", () => { if (state.view === "tree") fit(); });
+
+/* ---------------- элементы управления */
+function syncHouses() { document.querySelectorAll("#houses button").forEach(b => b.setAttribute("aria-pressed", b.dataset.h === state.house)); }
+function controls() {
+  const hb = document.getElementById("houses");
+  D.houses.forEach(h => {
+    const b = document.createElement("button"); b.type = "button"; b.dataset.h = h.id; b.style.setProperty("--c", h.color);
+    b.innerHTML = `<i></i>${esc(h.ru)}`;
+    b.onclick = () => { if (state.house !== h.id) { state.house = h.id; state.alloc = new Set(["house_" + h.id]); state.mastery = {}; state.sel = null; save(); syncHouses(); paint(); showDetail(null); } };
+    hb.appendChild(b);
+  });
+  syncHouses();
+  const ys = document.getElementById("year");
+  for (let y = 1; y <= 9; y++) { const o = document.createElement("option"); o.value = y; o.textContent = `${YEARS[y]} · ${BOSS[y]}`; ys.appendChild(o); }
+  ys.value = state.year;
+  ys.onchange = () => {
+    state.year = +ys.value;
+    [...state.alloc].forEach(id => { if (!yearOk(byId.get(id))) state.alloc.delete(id); });
+    pruneDisconnected();
+    if (SPEC_BUDGET[state.year] < state.specAlloc.size) state.specAlloc.clear();
+    save(); paint(); renderSpecs();
+    if (used() > BUDGET[state.year]) toast(`На этом курсе доступно ${BUDGET[state.year]} очков — снимите лишние узлы.`);
+  };
+  const q = document.getElementById("q");
+  q.oninput = () => { state.q = q.value; paint(); };
+  document.getElementById("reset").onclick = () => { state.alloc = new Set(["house_" + state.house]); state.mastery = {}; state.sel = null; state.specAlloc.clear(); state.spec = null; save(); paint(); renderSpecs(); showDetail(null); };
+  const lg = document.getElementById("legend");
+  lg.innerHTML = D.schools.map(s => `<span><span class="swatch" style="background:${s.color}"></span>${esc(s.name)}</span>`).join("");
+  const tTree = document.getElementById("tab-tree"), tSpec = document.getElementById("tab-specs");
+  const setView = v => {
+    state.view = v; tTree.setAttribute("aria-selected", v === "tree"); tSpec.setAttribute("aria-selected", v === "specs");
+    document.getElementById("specs").hidden = v !== "specs"; svg.style.visibility = v === "tree" ? "visible" : "hidden";
+    document.querySelector(".zoom").hidden = v !== "tree"; document.getElementById("hint").hidden = v !== "tree";
+    if (v === "tree") fit();
+  };
+  tTree.onclick = () => setView("tree"); tSpec.onclick = () => setView("specs");
+}
+
+/* ---------------- призвания */
+function renderSpecs() {
+  const box = document.getElementById("specs"); box.innerHTML = "";
+  const bud = SPEC_BUDGET[state.year];
+  D.specializations.forEach(sp => {
+    const card = document.createElement("div"); card.className = "spec" + (state.spec === sp.id ? " chosen" : "");
+    const usedHere = state.spec === sp.id ? state.specAlloc.size : 0;
+    card.innerHTML = `<header><h3>${esc(sp.name)}</h3><small>${state.spec === sp.id ? usedHere + " / " + bud : esc(sp.role)}</small></header>`;
+    const s = el("svg", { viewBox: "-260 -40 520 520", role: "img", "aria-label": sp.name });
+    const nb = new Map(sp.nodes.map(n => [n.id, n])); const sadj = new Map(sp.nodes.map(n => [n.id, []]));
+    sp.edges.forEach(([a, b]) => { sadj.get(a).push(b); sadj.get(b).push(a); const A = nb.get(a), B = nb.get(b);
+      const on = state.spec === sp.id && (A.type === "house" || state.specAlloc.has(a)) && state.specAlloc.has(b);
+      const l = el("line", { x1: A.x * 100, y1: A.y * 100, x2: B.x * 100, y2: B.y * 100, class: "e" + (on ? " on" : "") }, s); });
+    sp.nodes.forEach(n => {
+      const g = el("g", { class: "n", transform: `translate(${n.x * 100},${n.y * 100})`, tabindex: 0, role: "button", "aria-label": n.name }, s);
+      const on = n.type === "house" ? state.spec === sp.id : state.spec === sp.id && state.specAlloc.has(n.id);
+      g.style.setProperty("--c", n.type === "keystone" ? "#d8b866" : "#5ef08d");
+      if (on) g.classList.add("on");
+      const r = { house: 22, small: 9, notable: 16, keystone: 22 }[n.type];
+      const b = n.type === "keystone" ? el("polygon", { points: poly(8, r) }, g) : el("circle", { r }, g);
+      b.setAttribute("class", "body"); b.setAttribute("stroke", n.type === "keystone" ? "#d8b866" : "#5ef08d");
+      const show = () => showSpecDetail(sp, n);
+      g.addEventListener("pointerenter", show); g.addEventListener("focus", show);
+      const act = () => clickSpec(sp, n, sadj);
+      g.addEventListener("click", act); g.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); act(); } });
+    });
+    card.appendChild(s);
+    box.appendChild(card);
+  });
+}
+function showSpecDetail(sp, n) {
+  const kind = { house: "Призвание", small: "Малый узел призвания", notable: "Значимый узел призвания", keystone: "Вершина призвания" }[n.type];
+  document.getElementById("detail").innerHTML = `<div class="kind">${kind}</div><h2>${esc(n.type === "small" ? sp.name : n.name)}</h2><p>${esc(n.text)}</p>
+    <p class="req">Очки призвания: Модер, Яглут, Королева и Фейдер дают по 2. На выбранном курсе доступно ${SPEC_BUDGET[state.year]}.</p>`;
+}
+function clickSpec(sp, n, sadj) {
+  const bud = SPEC_BUDGET[state.year];
+  if (!bud) { toast("Призвание открывается на 5 курсе (СОВ, после Модер)."); return; }
+  if (n.type === "house") { if (state.spec !== sp.id) { state.spec = sp.id; state.specAlloc.clear(); } save(); renderSpecs(); return; }
+  if (state.spec !== sp.id) { state.spec = sp.id; state.specAlloc.clear(); }
+  const root = sp.id + "_root";
+  if (state.specAlloc.has(n.id)) {
+    state.specAlloc.delete(n.id);
+    const seen = new Set([root]); const q = [root];
+    while (q.length) { const x = q.shift(); for (const y of sadj.get(x)) if (state.specAlloc.has(y) && !seen.has(y)) { seen.add(y); q.push(y); } }
+    state.specAlloc = new Set([...state.specAlloc].filter(id => seen.has(id)));
+  } else {
+    const prev = new Map([[root, null]]); state.specAlloc.forEach(id => prev.set(id, null)); const q = [root, ...state.specAlloc];
+    while (q.length) { const x = q.shift(); if (x === n.id) break; for (const y of sadj.get(x)) if (!prev.has(y)) { prev.set(y, x); q.push(y); } }
+    const path = []; let c = n.id; while (c && c !== root && !state.specAlloc.has(c)) { path.push(c); c = prev.get(c); }
+    if (state.specAlloc.size + path.length > bud) toast(`Не хватает очков призвания: нужно ${path.length}, свободно ${bud - state.specAlloc.size}.`);
+    else path.forEach(x => state.specAlloc.add(x));
+  }
+  save(); renderSpecs(); showSpecDetail(sp, n);
+}
+
+load(); controls(); build(); fit(); paint(); showDetail(null); renderSpecs();
+</script>
