@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Builds Wizardry.dll against the Valheim 1.0.21 reference assemblies.
+    RefsDir must contain: assembly_valheim-publicized.dll, assembly_utils-publicized.dll, UnityEngine*.dll,
+    BepInEx.dll, 0Harmony.dll and Jotunn.dll. build.sh / build.ps1 download them from NuGet into ../../libs/refs.
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>Wizardry</AssemblyName>
+    <RootNamespace>Wizardry</RootNamespace>
+    <Product>Wizardry</Product>
+    <Version>1.0.0</Version>
+    <LangVersion>9.0</LangVersion>
+    <DebugType>none</DebugType>
+    <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <NoWarn>MSB3243;MSB3277;CS0618;CS0649;CS0414;CS0169</NoWarn>
+    <RefsDir Condition="'$(RefsDir)' == ''">$(MSBuildThisFileDirectory)..\..\libs\refs</RefsDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="$(RefsDir)\assembly_*.dll" Private="false" />
+    <Reference Include="$(RefsDir)\UnityEngine*.dll" Private="false" />
+    <Reference Include="$(RefsDir)\BepInEx.dll" Private="false" />
+    <Reference Include="$(RefsDir)\0Harmony.dll" Private="false" />
+    <Reference Include="$(RefsDir)\Jotunn.dll" Private="false" />
+  </ItemGroup>
+
+  <!-- models and textures travel inside Wizardry.dll: assets/<file> -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\assets\*.*">
+      <LogicalName>assets/%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+</Project>

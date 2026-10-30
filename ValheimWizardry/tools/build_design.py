@@ -171,6 +171,13 @@ def stat_text(school, k, ring):
     return tmpl.format(v=int(base * mult + 0.5))
 
 
+def stat_mod(school, k, ring):
+    _, base = T.SMALL_STATS[school][k % len(T.SMALL_STATS[school])]
+    key = T.SMALL_STAT_KEYS[school][k % len(T.SMALL_STATS[school])]
+    mult = (1.0, 1.25, 1.5)[ring - 1]
+    return "%s:%d" % (key, int(base * mult + 0.5))
+
+
 def build_tree(spells):
     t = Tree()
     by_school = {}
@@ -184,7 +191,8 @@ def build_tree(spells):
     # центр: Большой зал
     for i, (c, *_rest) in enumerate(T.SCHOOLS):
         t.add("hub_" + c, "small", P(1.2, angle[c]), ring=0, year=1, school=None,
-              name="Большой зал", text=("+3 МС" if i % 2 == 0 else "+2% урона чар"))
+              name="Большой зал", text=("+3 МС" if i % 2 == 0 else "+2% урона чар"),
+              mods=T.MODS["+3 МС" if i % 2 == 0 else "+2% урона чар"])
     for i in range(12):
         t.link("hub_" + T.SCHOOLS[i][0], "hub_" + T.SCHOOLS[(i + 1) % 12][0])
 
@@ -197,13 +205,14 @@ def build_tree(spells):
 
         def small(nid, pos, ring, year):
             nonlocal k
-            n = t.add(nid, "small", pos, ring=ring, year=year, school=c, name=ru, text=stat_text(c, k, ring))
+            n = t.add(nid, "small", pos, ring=ring, year=year, school=c, name=ru, text=stat_text(c, k, ring),
+                      mods=stat_mod(c, k, ring))
             k += 1
             return n
 
         def notable(nid, pos, ring, year):
             nm, tx = notes.pop(0)
-            return t.add(nid, "notable", pos, ring=ring, year=year, school=c, name=nm, text=tx)
+            return t.add(nid, "notable", pos, ring=ring, year=year, school=c, name=nm, text=tx, mods=T.MODS[nm])
 
         # кольцо I
         small(c + "_e", P(2.6, th), 1, 1)
@@ -236,7 +245,7 @@ def build_tree(spells):
             t.link("%s_w%d" % (c, i), "%s_w%d" % (c, (i + 1) % 8))
         t.link(c + "_b0", c + "_w0")
         t.add(c + "_m", "mastery", M, ring=2, year=ry2, school=c, name="Мастерство: " + ru,
-              text="Выберите одно:", options=T.MASTERIES[c])
+              text="Выберите одно:", options=T.MASTERIES[c], option_mods=T.MASTERY_MODS[c])
         t.link(c + "_m", c + "_w0")
         notable(c + "_n5", local(130, 1.1), 2, ry2)
         t.link(c + "_w1", c + "_n5")
@@ -263,7 +272,7 @@ def build_tree(spells):
 
         # обод: обет
         kn, kt = T.KEYSTONES[c]
-        t.add(c + "_key", "keystone", P(9.3, th), ring=4, year=7, school=c, name=kn, text=kt)
+        t.add(c + "_key", "keystone", P(9.3, th), ring=4, year=7, school=c, name=kn, text=kt, mods=T.MODS[kn])
         t.link(c + "_n8", c + "_key")
         assert not notes, c
 
@@ -285,7 +294,7 @@ def build_tree(spells):
                 given = house_spells.get(s["id"])
                 t.add(nid, "spell", pos, ring=ring, year=max(ry, s["year"]), school=c, name=s["name_ru"],
                       text=s["effect"], spell=s["id"],
-                      house_free=(T.HOUSES[given]["ru"] if given else None))
+                      house_free=(T.HOUSES[given]["ru"] if given else None), mods="learn:" + s["id"])
                 best = min(anchors, key=lambda a: dist(t.index[c + "_" + a], pos))
                 t.link(c + "_" + best, nid)
         small_counter[c] = k
@@ -297,7 +306,8 @@ def build_tree(spells):
         # следующая школа по часовой стрелке имеет угол на 30° меньше
         nm, tx = T.HYBRIDS[(c, d)]
         nid = "hy_%s_%s" % (c, d)
-        t.add(nid, "notable", P(5.35, a_ang - 15), ring=2, year=3, school=None, hybrid=[c, d], name=nm, text=tx)
+        t.add(nid, "notable", P(5.35, a_ang - 15), ring=2, year=3, school=None, hybrid=[c, d], name=nm, text=tx,
+              mods=T.MODS[nm])
         t.link(c + "_w6", nid)   # сторона -90° (по часовой) у школы c
         t.link(nid, d + "_w2")   # сторона +90° у школы d
 
@@ -306,18 +316,19 @@ def build_tree(spells):
         th = hour_angle(h["hour"])
         center = [c for c, *_r in T.SCHOOLS if angle[c] == th][0]
         t.add("house_" + hid, "house", P(1.9, th), ring=0, year=0, school=None, house=hid, name=h["ru"],
-              text="%s. %s Первое заклинание: %s." % (h["motto"], h["start"], h["spell"]))
+              text="%s. %s Первое заклинание: %s." % (h["motto"], h["start"], h["spell"]), mods=T.HOUSE_MODS[hid])
         t.link("hub_" + center, "house_" + hid)
         t.link("house_" + hid, center + "_e")
         for sign in (+1, -1):
             fl = [c for c, *_r in T.SCHOOLS if angle[c] == norm(th + sign * 30)][0]
             lid = "yard_%s_%s" % (hid, fl)
             t.add(lid, "small", P(2.25, th + sign * 15), ring=0, year=1, school=None, name="Двор " + h["ru"],
-                  text="+4 ОЗ")
+                  text="+4 ОЗ", mods=T.MODS["+4 ОЗ"])
             t.link("house_" + hid, lid)
             t.link(lid, fl + "_e")
         rn, rt = h["relic"]
-        t.add("relic_" + hid, "relic", P(1.65, th + 11), ring=0, year=8, school=None, house=hid, name=rn, text=rt)
+        t.add("relic_" + hid, "relic", P(1.65, th + 11), ring=0, year=8, school=None, house=hid, name=rn, text=rt,
+              mods=T.MODS[rn])
         t.link("house_" + hid, "relic_" + hid)
     for c, *_r in T.SCHOOLS:
         if not any(e == ["house_" + hid, c + "_e"] for hid in T.HOUSES for e in t.edges):
@@ -329,7 +340,9 @@ def build_tree(spells):
         sn = []
 
         def sp(nid, kind, x, y, name, text):
-            sn.append(dict(id="%s_%s" % (sid, nid), type=kind, x=x, y=y, name=name, text=text))
+            key = text if kind == "small" else name
+            sn.append(dict(id="%s_%s" % (sid, nid), type=kind, x=x, y=y, name=name, text=text,
+                           mods=T.MODS.get(key, "")))
 
         sp("root", "house", 0, 0, ru, role)
         sp("s1", "small", -0.8, 0.9, ru, smalls[0])
@@ -350,7 +363,7 @@ def build_tree(spells):
                  for c, ru, en, h, hs, col in T.SCHOOLS],
         houses=[dict(id=k, **{kk: vv for kk, vv in v.items() if kk != "relic"}) for k, v in T.HOUSES.items()],
         nodes=t.nodes, edges=t.edges, specializations=specs,
-        hallows=dict(name=T.HALLOWS[0], text=T.HALLOWS[1]),
+        hallows=dict(name=T.HALLOWS[0], text=T.HALLOWS[1], mods=T.MODS[T.HALLOWS[0]]),
     )
     check_connected(tree)
     return tree
@@ -565,6 +578,99 @@ def write_tree_md(tree, spells):
     open(os.path.join(DESIGN, "TREE.md"), "w", encoding="utf-8").write("\n".join(L) + "\n")
 
 
+# ---------------------------------------------------------------------------------------------- C# для мода
+SRC = os.path.join(ROOT, "src", "Wizardry", "Generated")
+
+
+def load_fx(spells):
+    fx = {}
+    for ln, line in enumerate(open(os.path.join(HERE, "spell_fx.txt"), encoding="utf-8"), 1):
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        sid, _, rest = line.partition(":")
+        sid = sid.strip()
+        rest = rest.strip()
+        if rest == "-":
+            continue
+        fx[sid] = rest
+    ids = {s["id"] for s in spells}
+    unknown = sorted(set(fx) - ids)
+    assert not unknown, unknown
+    castable = [s["id"] for s in spells if s["role"] not in ("lore", "system", "meta")]
+    missing = [i for i in castable if i not in fx]
+    assert not missing, missing
+    return fx
+
+
+def cs(v):
+    if v is None:
+        return "null"
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, (int, float)):
+        return repr(float(v)) + "f" if isinstance(v, float) else str(v)
+    return '"' + str(v).replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n") + '"'
+
+
+def cs_arr(lst):
+    return "new[] { " + ", ".join(cs(x) for x in lst) + " }" if lst else "new string[0]"
+
+
+def write_csharp(spells, tree, fx):
+    os.makedirs(SRC, exist_ok=True)
+    L = ["// <auto-generated> tools/build_design.py — не править вручную </auto-generated>",
+         "namespace Wizardry", "{", "    internal static partial class SpellDb", "    {",
+         "        internal static readonly SpellDef[] All =", "        {"]
+    for s in spells:
+        n = s["numbers"] or {}
+        a = s["augments"]
+        L.append("            new SpellDef(%s)," % ", ".join([
+            cs(s["id"]), cs(s["incantation"]), cs(s["name_ru"]), cs(s["name_en"]), cs(s["school"]), cs(s["year"]),
+            cs(s["role"]), cs(s["archetype"]), cs(",".join(s["damage"])), cs(s["scale"]), cs(s["anim"]),
+            cs(float(s["cooldown"]) if s["cooldown"] is not None else -1.0), cs(s["effect"]), cs(s["vfx"]),
+            cs(s["parent"]), cs(a.get("r3")), cs(a.get("r6")), cs(a.get("r9")), cs(fx.get(s["id"])),
+            cs(",".join(s["sources"]))]))
+    L += ["        };", "    }", "}"]
+    open(os.path.join(SRC, "SpellData.g.cs"), "w", encoding="utf-8").write("\n".join(L) + "\n")
+
+    idx = {n["id"]: i for i, n in enumerate(tree["nodes"])}
+    T2 = ["// <auto-generated> tools/build_design.py — не править вручную </auto-generated>",
+          "namespace Wizardry", "{", "    internal static partial class TreeDb", "    {",
+          "        internal static readonly NodeDef[] Nodes =", "        {"]
+    for n in tree["nodes"]:
+        T2.append("            new NodeDef(%s)," % ", ".join([
+            cs(n["id"]), cs(n["type"]), cs(n.get("school")), cs(n.get("ring", 0)), cs(n.get("year", 0)),
+            cs(float(n["x"])), cs(float(n["y"])), cs(n["name"]), cs(n.get("text", "")), cs(n.get("spell")),
+            cs(n.get("house")), cs(n.get("mods", "")), cs_arr(n.get("options", [])), cs_arr(n.get("option_mods", [])),
+            cs(",".join(n.get("hybrid", [])) if n.get("hybrid") else None)]))
+    T2 += ["        };", "", "        internal static readonly int[] Edges =", "        {"]
+    pairs = ["%d, %d" % (idx[a], idx[b]) for a, b in tree["edges"]]
+    for i in range(0, len(pairs), 12):
+        T2.append("            " + ", ".join(pairs[i:i + 12]) + ",")
+    T2 += ["        };", "", "        internal static readonly SpecDef[] Specs =", "        {"]
+    for sp in tree["specializations"]:
+        sidx = {n["id"]: i for i, n in enumerate(sp["nodes"])}
+        nodes = ", ".join("new NodeDef(%s)" % ", ".join([
+            cs(n["id"]), cs(n["type"]), "null", "0", "5", cs(float(n["x"])), cs(float(n["y"])), cs(n["name"]),
+            cs(n["text"]), "null", "null", cs(n.get("mods", "")), "new string[0]", "new string[0]", "null"])
+            for n in sp["nodes"])
+        edges = ", ".join("%d, %d" % (sidx[a], sidx[b]) for a, b in sp["edges"])
+        T2.append("            new SpecDef(%s, %s, %s, new[] { %s }, new[] { %s })," % (
+            cs(sp["id"]), cs(sp["name"]), cs(sp["role"]), nodes, edges))
+    T2 += ["        };", "",
+           "        internal const string HallowsName = %s;" % cs(tree["hallows"]["name"]),
+           "        internal const string HallowsText = %s;" % cs(tree["hallows"]["text"]),
+           "        internal const string HallowsMods = %s;" % cs(tree["hallows"]["mods"]),
+           "", "        internal static readonly SchoolDef[] Schools =", "        {"]
+    for sc in tree["schools"]:
+        T2.append("            new SchoolDef(%s, %s, %s, %s, %s)," % (
+            cs(sc["code"]), cs(sc["name"]), cs(sc["name_en"]), cs(sc["house"]), cs(sc["color"])))
+    T2.append("            new SchoolDef(\"PRK\", \"Розыгрыши\", \"Pranks\", null, \"#f59e0b\"),")
+    T2 += ["        };", "    }", "}"]
+    open(os.path.join(SRC, "TreeData.g.cs"), "w", encoding="utf-8").write("\n".join(T2) + "\n")
+
+
 def main():
     spells = load_spells()
     tree = build_tree(spells)
@@ -576,6 +682,7 @@ def main():
     write_spells_md(spells)
     write_vfx_md(spells)
     write_tree_md(tree, spells)
+    write_csharp(spells, tree, load_fx(spells))
     from collections import Counter
     print("заклинаний:", len(spells), dict(Counter(s["role"] for s in spells)))
     print("узлов:", len(tree["nodes"]), dict(Counter(n["type"] for n in tree["nodes"])), "связей:", len(tree["edges"]))

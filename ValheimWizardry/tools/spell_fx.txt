@@ -1,0 +1,373 @@
+# Исполняемая механика заклинаний для движка мода. Одна строка: id: доставка операции...
+# Доставка: bolt (снаряд: spd= n= spr= pierce= arc homing) · ray (мгновенный луч, rng=) · chan (поддержание, max=) ·
+#           cone (r= ang=) · nova (вокруг мага, r=) · blast (в точку прицела, r= rng=) · self · ally (союзник в прицеле или вы) ·
+#           touch (цель вплотную) · place (точка на земле) · global
+# Вредные операции бьют врагов, полезные (heal buff cleanse shield revive stam) — союзников.
+# Полный словарь операций — в src/Wizardry/SpellOps.cs.
+
+# --- Защита и дуэль
+basic_cast: bolt spd=45 dmg focus=1
+shooting_spell: bolt spd=70 pierce=1 dmg=1.3 scare=12
+combat_bolt: bolt spd=55 dmg vulnstun=30
+stupefy: bolt spd=45 dmg stagger vuln=20,2
+expelliarmus: bolt spd=50 dmg weak=40,4 interrupt
+jelly_fingers: bolt spd=45 weak=60,3 interrupt
+protego: self protego
+versis: self protego reflect=nearest
+reversis: self protego reflect=caster
+protego_horribilis: nova r=5 dome=5:6:shield
+impedimenta: bolt spd=40 slow=60,4 push=3
+petrificus_totalus: bolt spd=45 stun=3:petrify
+expecto_patronum: place summon=Deer/Wolf:1:20:patronus
+patronus_messenger: global ping msg
+riddikulus: nova r=5 stun=3:laugh weak=20,8
+finite_incantatem: nova r=6 dispel
+surgito: nova r=6 dispel cleanse=ctrl immune=3
+flipendo: cone r=6 ang=40 dmg push=10
+flipendo_duo: cone r=6 ang=40 dmg push=10 dot=fire,4,2
+flipendo_tria: cone r=7 ang=70 dmg push=10 n=3
+flipendo_maxima: cone r=9 ang=60 dmg=1.4 push=18 stagger
+everte_statum: bolt spd=40 dmg push=6 lift=4 stun=1
+rictusempra: bolt spd=40 weak=30,4 stun=0.5:laugh
+titillando: bolt spd=40 weak=30,4 vuln=15,4 stun=0.5:laugh
+stinging_jinx: bolt spd=60 dmg blind=2
+trip_jinx: touch rng=12 stun=0.8:trip
+locomotor_mortis: bolt spd=45 root=3
+locomotor_wibbly: bolt spd=45 slow=50,5
+sponge_knees: bolt spd=45 slow=40,6 root=1
+tarantallegra: bolt spd=40 stun=3:dance
+colloshoo: place zone=sticky:4:6
+slippery_jinx: place zone=slip:4:6
+immobulus: nova r=5 stun=3:freeze weakonly slow=40,3
+levicorpus: bolt spd=40 lift=6 stun=2.5:dangle
+liberacorpus: bolt spd=50 stun=1 cleanse=ctrl
+alarte_ascendare: bolt spd=45 lift=9 vuln=25,3 dmg
+orbis: bolt spd=40 root=3 dmg vuln=10,3
+relashio: cone r=5 ang=35 dmg push=4 cleanse=root
+reducto: bolt spd=55 dmg structure=3
+disintegration: bolt spd=55 dmg structure=3 exec=15
+finestra: blast r=3 dmg structure=2 bonus=frost:2
+fracto_strata: nova r=6 dmg structure=4
+lumos_solem: nova r=8 dmg blind=2 undead=2 troll=3
+skurge: bolt spd=50 dmg undead=3 fear=2
+arania_exumai: nova r=6 dmg insect=2.5 push=8
+homorphus: bolt spd=45 stun=3 weak=50,10
+bravery_charm: nova r=10 buff=dmg:12@15 allies
+deterioration_hex: bolt spd=45 shred=25,8
+dumbledore_force: nova r=15 dmg=3 push=20 stagger dispel
+shield_penetration: -
+
+# --- Стихии
+incendio: bolt spd=40 dmg ignite=1
+incendio_duo: bolt spd=45 dmg pierce=2 ignite=1
+incendio_tria: bolt spd=40 dmg zone=fire:3:5
+inflamare: bolt spd=30 dmg=0.3 ignite=20
+lacarnum_inflamari: bolt spd=40 dmg dot=fire,6,6 fear=1
+fire_whip: cone r=6 ang=50 dmg combo push=4
+confringo: bolt spd=40 dmg aoe=3 push=6
+bombarda: blast r=3 dmg structure=2
+bombarda_maxima: blast r=8 dmg=1.5 structure=3 push=10
+expulso: blast r=4 dmg push=14
+glacius: bolt spd=45 dmg slow=40,3 chill=3
+glacius_duo: bolt spd=50 dmg slow=40,3 chill=2
+glacius_tria: blast r=4 dmg freeze=2 shatter
+ice_jinx: bolt spd=35 arc dmg
+bewitched_snowballs: bolt spd=18 n=5 spr=25 homing dmg=0.5 slow=30,2
+aguamenti: chan rng=12 max=4 dmg=0.6 bonus=fire:2 wet extinguish=2 push=1
+aqua_eructo: chan rng=14 max=4 dmg push=4 wet extinguish=2
+aquarius_scarius: place decoy=1:8
+extinguishing: nova r=8 extinguish=8 cleanse=burn
+flame_freezing: self buff=fireimm:1;resfire:50@60
+bluebell_flames: place flame=600
+hot_air_charm: self cleanse=wet buff=coldres:50@60
+drought_charm: nova r=8 cleanse=wet buff=wetimm:1@120 allies
+firestorm: nova r=12 zone=firering:12:8
+ventus: cone r=8 ang=40 dmg push=12 deflect wind=20
+ventus_duo: cone r=10 ang=40 dmg push=20 deflect wind=40
+gusts: nova r=5 push=12 deflect
+fulgur: ray rng=35 dmg chain=0 wetbonus=40
+fulmen_tempestas: blast r=20 zone=storm:20:10 weather=ThunderStorm:12
+pepper_breath: chan rng=5 max=4 cone dmg ignite=1
+purple_firecrackers: blast r=4 dmg scare=15
+cracker_jinx: bolt spd=25 arc dmg delay=1 aoe=3
+meteolojinx_recanto: global weather=Clear:180
+atmospheric_charm: global weather=choose:300
+
+# --- Чары
+lumos: self lumos
+nox: self nox
+lumos_duo: chan rng=20 max=6 dmg=0.4 undead=2 light
+lumos_maxima: place orb=120
+wingardium_leviosa: bolt spd=40 lift=4 stun=3:levitate weakonly levitateobj=20
+levioso: nova r=3 lift=4 stun=2:levitate weakonly
+accio: ray rng=20 accio=20 pull=10
+vacuum_spell: nova r=8 accio=8
+depulso: bolt spd=50 dmg push=16
+locomotor: self carry=chest:120
+mobiliarbus: self carry=log:120
+mobilicorpus: self carry=body:120
+diffindo: bolt spd=50 dmg chop
+reparo: nova r=6 repair=6
+alohomora: ray rng=8 door=open unlock
+alohomora_duo: ray rng=10 door=open unlock heavy
+aberto: ray rng=15 door=toggle
+cistem_aperio: ray rng=12 chest=open
+colloportus: ray rng=10 door=lock:60
+engorgio: ally buff=dmg:25;hp:25@30 grow=0
+growth_charm: nova r=6 grow=6
+reducio: bolt spd=45 weak=35,8 shrink=8
+diminuendo: bolt spd=45 weak=50,8 shrink=8
+inflatus: bolt spd=40 lift=7 stun=3:inflate
+geminio: self decoy=2:10
+spongify: place zone=bounce:2:120
+molliare: self buff=falldmg:-80@300
+feather_light: self buff=carry:100@600
+weight_loss_charm: self buff=carry:50@1800
+extension_charm: ritual chestrow
+pack_charm: self pack
+unbreakable_charm: self buff=nodurability:1@300
+permanent_sticking: ray rng=8 stick
+epoximise: bolt spd=40 root=2 stickpiece
+gripping_charm: self buff=block:15;nodisarm:1@120
+hover_charm: ray rng=8 msg
+circumrota: bolt spd=45 turn=2
+reverte: bolt spd=45 revert=3
+switching_spell: ray rng=20 swap
+proficiency_charm: self buff=skills:10@300
+stamina_charm: self buff=stamregen:50@60
+cheering_charm: nova r=10 rested=300 allies
+colovaria: self colour
+vermillious: bolt spd=45 n=3 spr=12 dmg=0.5
+verdimillious: bolt spd=45 dmg reveal=5:8:trap
+verdimillious_duo: bolt spd=45 n=2 spr=8 dmg reveal=10:8:trap
+verdillious: self buff=wandmelee:1@20
+baubillious: bolt spd=70 dmg=0.8
+periculum: global ping flare=red
+blue_sparks: global ping flare=blue
+green_sparks: global ping flare=green
+white_sparks: global ping flare=white
+
+# --- Руны и тайны
+revelio: nova r=25 reveal=25:8:all
+homenum_revelio: nova r=40 reveal=40:10:human
+specialis_revelio: ray rng=20 info reveal=30:30:ore
+aparecium: global reveal=60:20:rune
+appare_vestigium: nova r=120 track=120
+avenseguim: ray rng=30 mark=600
+point_me: global pointme
+tempus: global tempus
+informous: ray rng=25 info vuln=10,20
+echo_detection: nova r=20 reveal=20:6:all
+supersensory_charm: self buff=backstab:-30;detect:50@120
+stealth_sensoring: nova r=15 dispel reveal=15:10:enemy
+homonculous_charm: ritual map=100:600
+flagrate: place sign=600
+hour_reversal: self rewind=5
+foresight: self buff=dodge:10@8
+dissendium: global reveal=80:60:chest
+
+# --- Трансфигурация
+pullus: bolt spd=40 poly=Hen:6
+lapifors: bolt spd=40 poly=Hare:4 fear=4
+ducklifors: bolt spd=40 poly=Hen:6 confuse=6
+herstrifors: bolt spd=40 poly=hay:6 bonus=fire:3
+vera_verto: bolt spd=40 poly=goblet:5 invuln
+piscifors: bolt spd=40 poly=fish:6 dot=spirit,4,6
+herbifors: bolt spd=40 poly=flowers:6 bonus=fire:2
+flintifors: bolt spd=40 poly=matchbox:6 firebomb=3
+vermiculus: bolt spd=40 poly=worms:4 untarget
+badgering: bolt spd=40 poly=Boar:6 charm=6
+avifors: place summon=Crow/Seagal:5:8:bird
+draconifors: place summon=Hatchling:2:20:small
+duro: bolt spd=45 stun=3:petrify stonedmg wallfront
+evanesco: ray rng=20 vanish dispelsummons
+vipera_evanesca: nova r=6 dispelsummons vanish
+deletrius: chan rng=20 max=2 vanish
+reparifarge: nova r=6 unpoly
+glisseo: place zone=slip:6:8
+deprimo: blast r=3 dmg terrain=crater:3 push=-4
+defodio: chan rng=8 max=4 dmg terrain=dig:2
+golemus_mobilia: place summon=StoneGolem:1:30:small
+hardenus: self buff=armor:20;speed:-10@20
+fortifundus: nova r=8 fortify=8:600
+altering_spell: self colour
+multicorfors: self colour
+crinus_muto: self barber
+
+# --- Обереги
+protego_maxima: nova r=12 dome=12:30:shield
+fianto_duri: nova r=15 fortify=15:60 buff=block:60@5 allies
+repello_inimicum: nova r=12 dome=12:60:repel
+great_dome: ritual dome=40:600:great
+protego_totalum: nova r=8 zone=ward:8:20
+salvio_hexia: nova r=8 buff=debuffimm:1@10 allies
+cave_inimicum: ritual zone=safe:10:600
+repello_muggletum: ritual zone=muggle:25:1200
+protection_charm: ally buff=armor:15@30
+imperturbable_charm: place wall=6:15
+fidelius_charm: ritual zone=fidelius:30:3600
+concealment_charm: ray rng=8 msg
+mom_fog: nova r=20 zone=fog:20:60
+intruder_charm: ritual zone=alarm:30:1800
+caterwauling_charm: place zone=trap:2:600
+anti_intruder_jinxes: ritual zone=firetrap:20:1800
+age_line: place zone=ageline:6:600
+anti_apparition: nova r=25 zone=noapp:25:300
+anti_disapparition: nova r=25 zone=noapp:25:300
+thiefs_downfall: ritual zone=thief:6:1800
+unplottable: ritual hidemap=3600
+impervius: self buff=wetimm:1@600
+warming_charm: self buff=coldimm:1@300
+cooling_charm: self buff=resfire:40@300
+bubble_head_charm: self buff=swim:1;gasimm:1@180
+
+# --- Травология и существа
+herbivicus: blast r=4 dmg slow=50,3 grow=4
+devils_snare: blast r=4 root=2 dmg=0.5
+orchideous: place zone=heal:4:10
+bloomus: place zone=heal:4:30
+rose_growth: place zone=thorns:4:10
+beast_calming: touch rng=10 calm=30 tame=20
+beast_call: global call=60
+venomous_tentacula: place zone=tentacula:4:20
+mandrake_cry: nova r=8 stun=2:scream
+whomping_willow: place zone=willow:10:15
+greenhouse_charm: ritual zone=greenhouse:10:3000
+inn_charm: self buff=food:20@600
+refilling_charm: self refill
+knitting_charm: nova r=10 buff=craftspeed:100@600
+
+# --- Целительство
+episkey: ally heal
+ferula: ally heal=0.5 buff=armor:15;hpregen:5@10
+rennervate: ally revive stam=30
+anapneo: ally cleanse=poison,smoke,wet
+brackium_emendo: touch rng=8 heal skeleton=5 cleanse=slow
+ossio_dispersimus: bolt spd=45 shred=40,6
+vulnera_sanentur: chan rng=10 max=3 heal=0.6 cleanse=bleed ally
+reparifors: ally cleanse=curse,poly heal=0.4
+pain_extraction: ally painswap
+emancipare: nova r=6 cleanse=root,slow allies
+scourgify: ally cleanse=wet,tar,slime
+tergeo: ally cleanse=bleed,wet
+phoenix_tears: nova r=25 heal=5 cleanse=all allies dmg zone=fire:4:3 phoenix
+
+# --- Разум
+legilimens: chan rng=20 max=2 dmg=0.4 vuln=15,6 crit=25 foresee
+confundo: bolt spd=40 confuse=5
+confusion_hex: bolt spd=40 weak=30,8 confuse=2
+jelly_brain: bolt spd=40 weak=40,6 silence=2
+obliviate: bolt spd=40 forget=6
+false_memory: ray rng=20 charm=10:passive
+daydream_charm: nova r=6 confuse=4:wander
+terrifying_charm: nova r=6 fear=3
+sonorus: nova r=15 taunt=5 buff=dmg:5@10 allies
+sonorous_roar: cone r=6 ang=60 stun=1:roar
+amplificus: global ping
+quietus: self untaunt=5
+sonicus: cone r=8 ang=40 dmg stagger interrupt
+silencio: bolt spd=45 silence=5
+langlock: bolt spd=45 silence=5 weak=20,5
+mimblewimble: bolt spd=45 silence=8
+oscausi: bolt spd=45 silence=6 nocall
+cantis: bolt spd=40 silence=4 taunttarget=6
+babbling_curse: bolt spd=40 mark=10
+muffliato: nova r=8 zone=quiet:8:60
+disillusionment: self buff=stealth:75@20 breakonattack
+notice_me_not: self buff=stealth:40@120
+obliteration_charm: self buff=notrack:1@60
+bedazzling_hex: self buff=invis:1@10 breakonattack
+obscuro: bolt spd=45 blind=4
+melofors: bolt spd=45 blind=4 mark=4
+conjunctivitis_curse: bolt spd=45 blind=3 big
+fumos: blast r=5 zone=smoke:5:8
+fumos_duo: blast r=5 zone=smoke:5:8 n=3
+nebulus: nova r=15 zone=fog:15:30
+
+# --- Тёмные искусства
+avada_kedavra: ray rng=40 dmg=3 exec=35 bosspct=15 hp=10 dark=25
+crucio: chan rng=20 max=4 dmg stun=0.4:writhe dark=15
+imperio: ray rng=20 charm=15 dark=20
+sectumsempra: cone r=6 ang=25 dmg bleed=6,6 healred=50 dark=5
+entrail_expelling: bolt spd=50 dmg=2 living dark=10
+fiendfyre: place zone=fiendfyre:15:12 dark=30
+morsmordre: global darkmark=60 fearall=30:4 buff=darkdmg:15@60 dark=20
+protego_diabolica: nova r=10 zone=diabolica:10:15 dark=25
+dolohov_curse: cone r=8 ang=15 dmg dot=fire,5,6 dark=8
+rookwood_curse: chan rng=20 max=8 dmg=0.5 ramp=3 dark=10
+transmogrifian_torture: bolt spd=40 dmg dot=spirit,6,8 slow=50,8 dark=15
+smashing_spell: blast r=5 dmg structure=2 dark=5
+gytrash_conjuring: place summon=Wolf:2:20:ghost dark=10
+inferi: place summon=Skeleton_Friendly/Draugr:2:60 dark=10
+gemino_curse: place zone=gemino:3:300
+flagrante_curse: ray rng=8 zone=flagrante:2:60
+finger_removing: bolt spd=45 dmg weak=50,5 dark=5
+
+# --- Призывание
+serpensortia: place summon=snake:1:20
+avis: place summon=Crow/Seagal:5:10:bird passive
+oppugno: bolt spd=30 n=8 spr=30 homing dmg=0.4
+incarcerous: bolt spd=40 root=3 ropes
+brachiabindo: bolt spd=40 disarm=4 ropes
+fulgari: bolt spd=40 root=3 dot=lightning,4,3 ropes
+waddiwasi: bolt spd=40 arc dmg
+arrow_shooting: bolt spd=70 dmg arrows=10
+erecto: place tent=1800
+bridge_conjuring: place bridge=20:60
+armour_guard: place summon=Draugr_Elite/Draugr:1:30:armor
+piertotum_locomotor: place summon=StoneGolem:4:45:small
+conjuration_spell: self msg
+inanimatus_conjurus: self msg
+bubble_spell: self bubbles
+ebublio: bolt spd=40 stun=3:bubble invuln lift=2
+
+# --- Перемещение
+celeritas: self buff=speed:25;runstam:-30@10
+ascendio: self leap=11 buff=falldmg:-100@3
+arresto_momentum: cone r=10 ang=50 slow=70,3 self buff=falldmg:-100@4
+descendo: bolt spd=55 slam=2 dmg
+carpe_retractum: ray rng=25 grapple=25 pull=10
+partis_temporus: self buff=fireimm:1;lavaimm:1@4 push=8 cone r=8 ang=30
+apparition: self blink=15 hold=home
+side_along: self blink=15 hold=home sidealong
+unsupported_flight: self flight=8
+portus: ritual portkey
+teleportation_spell: self sendhome
+vanishing_cabinet: ritual cabinet
+rowboat_spell: self row=60
+
+# --- Розыгрыши
+bat_bogey_hex: bolt spd=40 dot=pierce,2,3 confuse=2
+ear_shrivelling: bolt spd=40 deaf=10
+ears_to_kumquats: bolt spd=40 deaf=10
+leek_jinx: bolt spd=40 deaf=6
+toenail_hex: bolt spd=40 slow=20,6
+knee_reversal: bolt spd=40 stun=1:trip
+twitchy_ears: bolt spd=40 weak=10,8
+tail_growing: bolt spd=40 slow=15,8 stun=0.3
+horn_tongue: bolt spd=40 silence=3
+cornflake_skin: bolt spd=40 shred=10,8
+pinhead_jinx: bolt spd=40 confuse=2
+porcupine_jinx: bolt spd=40 thorns=5,8
+sea_urchin_jinx: bolt spd=40 thorns=8,8
+insect_hex: bolt spd=40 vuln=30,8 slow=15,8
+anteoculatia: bolt spd=40 weak=30,6 antlers
+calvorio: bolt spd=40 weak=5,5
+instant_scalping: bolt spd=50 weak=5,5
+hair_thickening: ally buff=coldres:5@300
+fur_spell: ally buff=coldres:30@300
+engorgio_skullus: bolt spd=40 vuln=15,6 slow=20,6
+redactum_skullus: bolt spd=40 weak=15,6
+mutatio_skullus: bolt spd=40 randomprank
+tentaclifors: bolt spd=40 silence=2 blind=2
+densaugeo: bolt spd=40 weak=50,6 beastonly
+furnunculus: bolt spd=40 dot=poison,3,6
+mucus_ad_nauseam: bolt spd=40 weak=20,8 slow=20,8
+slugulus_eructo: bolt spd=40 stun=2:vomit
+sternius: bolt spd=50 interrupt
+pus_squirting: bolt spd=40 weak=10,8
+sardine_hex: bolt spd=40 interrupt fishdrop=5
+stretching_jinx: bolt spd=40 slow=20,6
+da_parchment_jinx: ray rng=20 mark=600
+broom_jinx: bolt spd=45 slam=1
+hurling_hex: bolt spd=45 slam=1
